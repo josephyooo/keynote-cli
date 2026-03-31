@@ -1,5 +1,17 @@
 # keynote-cli — Technical Reference
 
+## Package layout
+
+| Module | Contents |
+|--------|----------|
+| `common.py` | Errors, validators, AppleScript helpers, `run_osascript` |
+| `script_parser.py` | `parse_script_line`, `parse_script`, `_group_operations_into_slides`, `DOC_OPS` |
+| `build.py` | `build_slide_applescript`, `_build_doc_op_applescript`, `build_build_applescript` |
+| `inspect.py` | `command_inspect`, `command_inspect_masters` and their AppleScript builders |
+| `export.py` | `command_export`, `command_present`, `EXPORT_FORMAT_MAP` |
+| `gui.py` | `command_insert_equations`, `command_insert_links`, `command_insert_slide_links` |
+| `cli.py` | `command_run`, `validate_template_masters`, `build_parser`, `main` |
+
 ## Script command reference
 
 ### open

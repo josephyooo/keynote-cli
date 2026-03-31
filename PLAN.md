@@ -4,6 +4,21 @@
 
 **AppleScript via `osascript`**, called from Python. Scripts are compiled into batched AppleScript for performance.
 
+### Package layout
+
+```
+keynote_cli/
+  common.py          — errors, validators, AppleScript helpers, run_osascript
+  script_parser.py   — DSL parsing (parse_script_line, parse_script), build plan grouping
+  build.py           — AppleScript generation for slide creation and document-level ops
+  inspect.py         — inspect and inspect-masters commands
+  export.py          — export and present commands
+  gui.py             — insert-equations, insert-links, insert-slide-links (GUI scripting)
+  cli.py             — command_run, build_parser, main
+```
+
+### Design decisions
+
 - **JXA rejected**: `masterSlides` is completely broken (`"Can't convert types"` on every access).
 - **Swift deferred**: No benefit at this stage.
 
