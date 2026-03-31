@@ -22,11 +22,10 @@ export PATH="$HOME/Projects/keynote-cli:$PATH"
 Create a script file `hello.keynote-script`:
 
 ```
-open template.key --output hello.key
+open my-template.key --output hello.key
 add-slide --master "Title"
 set-text --slide 1 --target defaultTitleItem "Hello World"
 set-text --slide 1 --target defaultBodyItem "Built with keynote-cli"
-delete-slides 1-7
 save
 ```
 

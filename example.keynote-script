@@ -1,7 +1,7 @@
 # Example keynote-cli script
 # Run with: keynote-cli run example.keynote-script
 
-open template.key --output out.key
+open my-template.key --output out.key
 
 # Title slide
 add-slide --master "Title"
