@@ -1,0 +1,25 @@
+# Example keynote-cli script
+# Run with: keynote-cli run example.keynote-script
+
+open template.key --output out.key
+
+# Title slide
+add-slide --master "Title"
+set-text --slide 1 --target defaultTitleItem "Climate Risk and Intelligent Adaptation"
+set-text --slide 1 --target defaultBodyItem "Acme Corp — Strategy Team"
+
+# Content slide with body text and indented bullets
+add-slide --master "Title & Bullets"
+set-text --slide 2 --target defaultTitleItem "Introduction"
+set-text --slide 2 --target defaultBodyItem "Key Concepts\nClimate variability\nExtreme events\nAdaptation strategies" --indents 0,1,1,1
+
+# Two-column slide with an image
+add-slide --master "Title & Bullets Two-Column"
+set-text --slide 3 --target defaultTitleItem "Comparison"
+set-text --slide 3 --target textItem:3 "Left column content"
+set-text --slide 3 --target textItem:2 "Right column content"
+add-image --slide 3 --file figure.png --position 1200,700 --size 300,200
+
+# Delete original template slides and save
+delete-slides 1-7
+save

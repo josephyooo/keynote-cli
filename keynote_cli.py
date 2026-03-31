@@ -5,6 +5,7 @@ import argparse
 import codecs
 import json
 from pathlib import Path
+import shlex
 import shutil
 import subprocess
 import sys
@@ -14,65 +15,6 @@ from typing import Any, NoReturn
 APPLESCRIPT_LONG_TIMEOUT_SECONDS = 7200
 KEYNOTE_BUILD_BATCH_SIZE = 20
 
-LAYOUT_SPECS: dict[str, dict[str, Any]] = {
-    "Title": {
-        "master": "Title",
-        "content_order": ["title", "subtitle"],
-        "accessors": {
-            "title": "default title item",
-            "subtitle": "default body item",
-        },
-    },
-    "Header-Body": {
-        "master": "Title & Bullets",
-        "content_order": ["header", "body"],
-        "accessors": {
-            "header": "default title item",
-            "body": "default body item",
-        },
-    },
-    "Header-TwoCol": {
-        "master": "Title & Bullets Two-Column",
-        "content_order": ["header", "left", "right"],
-        "accessors": {
-            "header": "default title item",
-            "left": "text item 3",
-            "right": "text item 2",
-        },
-    },
-    "Header-Body-TwoCol": {
-        "master": "Title & Bullets Body over Two-Column",
-        "content_order": ["header", "body", "left", "right"],
-        "accessors": {
-            "header": "default title item",
-            "body": "text item 3",
-            "left": "text item 4",
-            "right": "text item 2",
-        },
-    },
-    "Header-TwoCol-Body": {
-        "master": "Title & Bullets Body under Two-Column",
-        "content_order": ["header", "left", "right", "body"],
-        "accessors": {
-            "header": "default title item",
-            "left": "text item 4",
-            "right": "text item 2",
-            "body": "text item 3",
-        },
-    },
-    "Header-Body-TwoCol-Body": {
-        "master": "Title & Bullets Body around Two-Column",
-        "content_order": ["header", "body_top", "left", "right", "body_bottom"],
-        "accessors": {
-            "header": "default title item",
-            "body_top": "text item 3",
-            "left": "text item 4",
-            "right": "text item 2",
-            "body_bottom": "text item 5",
-        },
-    },
-}
-
 DEFAULT_TEXTBOX_STYLE = {
     "font": "HelveticaNeue",
     "fontSize": 50,
@@ -80,8 +22,7 @@ DEFAULT_TEXTBOX_STYLE = {
 }
 
 FIELD_SEP = chr(31)
-ROOT_KEYS = {"template", "output", "slides"}
-SLIDE_KEYS = {"layout", "content", "images", "text_boxes", "textBoxes", "overrides", "notes"}
+
 IMAGE_KEYS = {"file", "position", "size"}
 TEXT_BOX_KEYS = {"text", "position", "size", "font", "fontSize", "font_size", "color"}
 OVERRIDE_KEYS = {
@@ -96,8 +37,6 @@ OVERRIDE_KEYS = {
     "opacity",
     "rotation",
 }
-TEXT_CAPABLE_OVERRIDE_TARGET_PREFIXES = ("content:", "textItem:", "shape:")
-LAYOUTS_WITH_REAL_DEFAULT_BODY = {"Title", "Header-Body"}
 
 
 class KeynoteCLIError(Exception):
@@ -247,19 +186,11 @@ def validate_size(value: Any, field_name: str) -> list[float]:
     return size
 
 
-def validate_override_target(target: Any, layout: str, field_name: str) -> str:
+def validate_target(target: str, field_name: str) -> str:
     if not isinstance(target, str) or not target:
         fail(f"{field_name} must be a non-empty string")
 
-    if target == "defaultTitleItem":
-        return target
-
-    if target == "defaultBodyItem":
-        if layout not in LAYOUTS_WITH_REAL_DEFAULT_BODY:
-            fail(
-                f"{field_name} uses defaultBodyItem on layout {layout!r}, but that layout's default body placeholder is hidden; "
-                f"use content:<key> or textItem:<n> instead"
-            )
+    if target in ("defaultTitleItem", "defaultBodyItem"):
         return target
 
     for prefix, label in (("textItem:", "text item"), ("image:", "image"), ("shape:", "shape")):
@@ -272,301 +203,403 @@ def validate_override_target(target: Any, layout: str, field_name: str) -> str:
                 fail(f"{field_name} has invalid {label} index: {target!r}")
             return target
 
-    if target.startswith("content:"):
-        content_key = target.split(":", 1)[1]
-        if content_key not in LAYOUT_SPECS[layout]["accessors"]:
-            fail(f"{field_name} references unknown content key {content_key!r} for layout {layout!r}")
-        return target
-
     fail(
         f"{field_name} has invalid target {target!r}. Use one of: defaultTitleItem, defaultBodyItem, "
-        f"content:<key>, textItem:<n>, image:<n>, shape:<n>"
+        f"textItem:<n>, image:<n>, shape:<n>"
     )
 
 
-def slide_item_expression(accessor: str, slide_var: str = "newSlide") -> str:
-    return f"{accessor} of {slide_var}"
-
-
-def override_target_expression(target: str, layout: str, slide_var: str = "newSlide") -> str:
-    target = str(target)
+def target_to_applescript(target: str, slide_var: str = "newSlide") -> str:
     if target == "defaultTitleItem":
         return f"default title item of {slide_var}"
     if target == "defaultBodyItem":
         return f"default body item of {slide_var}"
     if target.startswith("textItem:"):
-        try:
-            index = int(target.split(":", 1)[1])
-        except ValueError:
-            fail(f"Invalid override target: {target}")
+        index = int(target.split(":", 1)[1])
         return f"text item {index} of {slide_var}"
     if target.startswith("image:"):
-        try:
-            index = int(target.split(":", 1)[1])
-        except ValueError:
-            fail(f"Invalid override target: {target}")
+        index = int(target.split(":", 1)[1])
         return f"image {index} of {slide_var}"
     if target.startswith("shape:"):
-        try:
-            index = int(target.split(":", 1)[1])
-        except ValueError:
-            fail(f"Invalid override target: {target}")
+        index = int(target.split(":", 1)[1])
         return f"shape {index} of {slide_var}"
-    if target.startswith("content:"):
-        content_key = target.split(":", 1)[1]
-        accessor = LAYOUT_SPECS[layout]["accessors"].get(content_key)
-        if accessor is None:
-            fail(f"Unknown content key for override target {target!r} on layout {layout!r}")
-        return slide_item_expression(accessor, slide_var)
-    fail(
-        "Invalid override target. Use one of: defaultTitleItem, defaultBodyItem, "
-        "content:<key>, textItem:<n>, image:<n>, shape:<n>"
-    )
+    fail(f"Invalid target: {target}")
 
 
-def _validate_content_value(raw: Any, field: str) -> dict[str, Any]:
-    """Normalise a content value into ``{"text": str, "indents": list[int] | None}``.
+# ---------------------------------------------------------------------------
+# Script parser
+# ---------------------------------------------------------------------------
 
-    Accepted input forms:
-    - ``null`` / ``""`` / plain string  (no indent info)
-    - An array of ``{"text": str, "indent": int}`` objects  (explicit indents)
-    - An array of plain strings  (treated as indent 0 each)
-    """
-    if raw is None or (isinstance(raw, str) and raw == ""):
-        return {"text": "", "indents": None}
-    if isinstance(raw, str):
-        return {"text": raw, "indents": None}
-    if isinstance(raw, list):
-        texts: list[str] = []
-        indents: list[int] = []
-        has_indent = False
-        for j, item in enumerate(raw):
-            item_field = f"{field}[{j}]"
-            if isinstance(item, str):
-                texts.append(item)
-                indents.append(0)
-            elif isinstance(item, dict):
-                if "text" not in item:
-                    fail(f"{item_field} must contain a 'text' key")
-                texts.append(str(item["text"]))
-                lvl = item.get("indent", 0)
-                if not isinstance(lvl, int) or lvl < 0:
-                    fail(f"{item_field}.indent must be a non-negative integer")
-                indents.append(lvl)
-                if lvl != 0:
-                    has_indent = True
-            else:
-                fail(f"{item_field} must be a string or {{text, indent}} object")
+def parse_pair(raw: str) -> list[float]:
+    parts = raw.split(",")
+    if len(parts) != 2:
+        fail(f"Expected X,Y pair, got {raw!r}")
+    try:
+        return [float(parts[0]), float(parts[1])]
+    except ValueError:
+        fail(f"Invalid numeric pair: {raw!r}")
+
+
+def parse_indents(raw: str) -> list[int]:
+    parts = raw.split(",")
+    try:
+        indents = [int(p) for p in parts]
+    except ValueError:
+        fail(f"Invalid indents: {raw!r}")
+    for i in indents:
+        if i < 0:
+            fail(f"Indent values must be non-negative, got {i}")
+    return indents
+
+
+def parse_color(raw: str) -> list[int]:
+    parts = raw.split(",")
+    if len(parts) != 3:
+        fail(f"Color must be R,G,B — got {raw!r}")
+    try:
+        return normalize_color([int(p) for p in parts], "color")
+    except ValueError:
+        fail(f"Invalid color: {raw!r}")
+
+
+def _unescape_script_text(text: str) -> str:
+    return text.replace("\\n", "\n").replace("\\t", "\t").replace("\\\\", "\\")
+
+
+def parse_script_line(line: str, line_num: int, base_dir: Path) -> dict[str, Any] | None:
+    stripped = line.strip()
+    if not stripped or stripped.startswith("#"):
+        return None
+
+    try:
+        tokens = shlex.split(stripped)
+    except ValueError as exc:
+        fail(f"Line {line_num}: {exc}")
+
+    if not tokens:
+        return None
+
+    cmd = tokens[0]
+
+    if cmd == "open":
+        parser = argparse.ArgumentParser(prog="open", exit_on_error=False)
+        parser.add_argument("template")
+        parser.add_argument("--output", required=True)
+        parser.add_argument("--force", action="store_true")
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError) as exc:
+            fail(f"Line {line_num}: open requires TEMPLATE --output OUTPUT [--force]")
+        template = resolve_path(args.template, base_dir)
+        output = resolve_path(args.output, base_dir)
+        ensure_existing_file(template, f"line {line_num} template", ".key")
+        ensure_output_suffix(output, ".key", f"line {line_num} output")
+        if template == output:
+            fail(f"Line {line_num}: output must be different from template")
+        return {"op": "open", "template": template, "output": output, "force": args.force}
+
+    if cmd == "add-slide":
+        parser = argparse.ArgumentParser(prog="add-slide", exit_on_error=False)
+        parser.add_argument("--master", required=True)
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: add-slide requires --master NAME")
+        return {"op": "add-slide", "master": args.master}
+
+    if cmd == "set-text":
+        parser = argparse.ArgumentParser(prog="set-text", exit_on_error=False)
+        parser.add_argument("--slide", type=int, required=True)
+        parser.add_argument("--target", required=True)
+        parser.add_argument("--indents")
+        parser.add_argument("text")
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: set-text requires --slide N --target TARGET TEXT")
+        validate_target(args.target, f"line {line_num} target")
+        text = _unescape_script_text(args.text)
+        indents = None
+        if args.indents:
+            indents = parse_indents(args.indents)
+            line_count = text.count("\n") + 1 if text else 0
+            if len(indents) != line_count:
+                fail(f"Line {line_num}: indents count ({len(indents)}) must match text line count ({line_count})")
+        return {"op": "set-text", "slide": args.slide, "target": args.target, "text": text, "indents": indents}
+
+    if cmd == "set-notes":
+        parser = argparse.ArgumentParser(prog="set-notes", exit_on_error=False)
+        parser.add_argument("--slide", type=int, required=True)
+        parser.add_argument("text")
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: set-notes requires --slide N TEXT")
+        return {"op": "set-notes", "slide": args.slide, "text": _unescape_script_text(args.text)}
+
+    if cmd == "add-image":
+        parser = argparse.ArgumentParser(prog="add-image", exit_on_error=False)
+        parser.add_argument("--slide", type=int, required=True)
+        parser.add_argument("--file", required=True)
+        parser.add_argument("--position", required=True)
+        parser.add_argument("--size")
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: add-image requires --slide N --file PATH --position X,Y [--size W,H]")
+        file_path = resolve_path(args.file, base_dir)
+        ensure_existing_file(file_path, f"line {line_num} image file")
+        position = parse_pair(args.position)
+        size = None
+        if args.size:
+            size = parse_pair(args.size)
+            if size[0] <= 0 or size[1] <= 0:
+                fail(f"Line {line_num}: image size values must both be > 0")
+        return {"op": "add-image", "slide": args.slide, "file": file_path, "position": position, "size": size}
+
+    if cmd == "add-text-box":
+        parser = argparse.ArgumentParser(prog="add-text-box", exit_on_error=False)
+        parser.add_argument("--slide", type=int, required=True)
+        parser.add_argument("--text", required=True)
+        parser.add_argument("--position", required=True)
+        parser.add_argument("--size", required=True)
+        parser.add_argument("--font")
+        parser.add_argument("--font-size", type=float)
+        parser.add_argument("--color")
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: add-text-box requires --slide N --text TEXT --position X,Y --size W,H")
+        position = parse_pair(args.position)
+        size = parse_pair(args.size)
+        if size[0] <= 0 or size[1] <= 0:
+            fail(f"Line {line_num}: text box size values must both be > 0")
+        font = args.font or DEFAULT_TEXTBOX_STYLE["font"]
+        font_size = args.font_size or DEFAULT_TEXTBOX_STYLE["fontSize"]
+        if font_size <= 0:
+            fail(f"Line {line_num}: font-size must be > 0")
+        color = parse_color(args.color) if args.color else normalize_color(DEFAULT_TEXTBOX_STYLE["color"])
         return {
-            "text": "\n".join(texts),
-            "indents": indents if has_indent else None,
+            "op": "add-text-box", "slide": args.slide,
+            "text": _unescape_script_text(args.text),
+            "position": position, "size": size,
+            "font": font, "fontSize": font_size, "color": color,
         }
-    fail(f"{field} must be a string or array of paragraphs")
+
+    if cmd == "override":
+        parser = argparse.ArgumentParser(prog="override", exit_on_error=False)
+        parser.add_argument("--slide", type=int, required=True)
+        parser.add_argument("--target", required=True)
+        parser.add_argument("--text")
+        parser.add_argument("--position")
+        parser.add_argument("--size")
+        parser.add_argument("--font")
+        parser.add_argument("--font-size", type=float)
+        parser.add_argument("--color")
+        parser.add_argument("--opacity", type=float)
+        parser.add_argument("--rotation", type=float)
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: override requires --slide N --target TARGET [properties]")
+        validate_target(args.target, f"line {line_num} target")
+        if args.target.startswith("image:"):
+            if any(getattr(args, f) is not None for f in ("text", "font", "font_size", "color")):
+                fail(f"Line {line_num}: image targets cannot set text/font/color fields")
+        override: dict[str, Any] = {"op": "override", "slide": args.slide, "target": args.target}
+        has_property = False
+        if args.text is not None:
+            override["text"] = _unescape_script_text(args.text)
+            has_property = True
+        if args.position:
+            override["position"] = parse_pair(args.position)
+            has_property = True
+        if args.size:
+            s = parse_pair(args.size)
+            if s[0] <= 0 or s[1] <= 0:
+                fail(f"Line {line_num}: size values must both be > 0")
+            override["size"] = s
+            has_property = True
+        if args.font:
+            override["font"] = args.font
+            has_property = True
+        if args.font_size is not None:
+            if args.font_size <= 0:
+                fail(f"Line {line_num}: font-size must be > 0")
+            override["fontSize"] = args.font_size
+            has_property = True
+        if args.color:
+            override["color"] = parse_color(args.color)
+            has_property = True
+        if args.opacity is not None:
+            if args.opacity < 0 or args.opacity > 100:
+                fail(f"Line {line_num}: opacity must be between 0 and 100")
+            override["opacity"] = args.opacity
+            has_property = True
+        if args.rotation is not None:
+            override["rotation"] = args.rotation
+            has_property = True
+        if not has_property:
+            fail(f"Line {line_num}: override must include at least one property to change")
+        return override
+
+    if cmd == "delete-slides":
+        if len(tokens) != 2:
+            fail(f"Line {line_num}: delete-slides requires a range (e.g. 1-7 or 5)")
+        range_str = tokens[1]
+        if "-" in range_str:
+            parts = range_str.split("-", 1)
+            try:
+                start, end = int(parts[0]), int(parts[1])
+            except ValueError:
+                fail(f"Line {line_num}: invalid slide range: {range_str!r}")
+            if start < 1 or end < start:
+                fail(f"Line {line_num}: invalid slide range: {range_str!r}")
+        else:
+            try:
+                start = end = int(range_str)
+            except ValueError:
+                fail(f"Line {line_num}: invalid slide number: {range_str!r}")
+            if start < 1:
+                fail(f"Line {line_num}: invalid slide number: {range_str!r}")
+        return {"op": "delete-slides", "start": start, "end": end}
+
+    if cmd == "save":
+        if len(tokens) != 1:
+            fail(f"Line {line_num}: save takes no arguments")
+        return {"op": "save"}
+
+    fail(f"Line {line_num}: unknown command {cmd!r}")
 
 
-def validate_instructions(data: Any, instructions_path: Path) -> dict[str, Any]:
-    if not isinstance(data, dict):
-        fail("Instruction file must contain a JSON object at the top level")
+def parse_script(script_path: Path) -> list[dict[str, Any]]:
+    base_dir = script_path.parent.resolve()
+    lines = script_path.read_text(encoding="utf-8").splitlines()
+    operations: list[dict[str, Any]] = []
+    for line_num, line in enumerate(lines, start=1):
+        op = parse_script_line(line, line_num, base_dir)
+        if op is not None:
+            operations.append(op)
+    if not operations:
+        fail("Script is empty")
+    return operations
 
-    ensure_allowed_keys(data, ROOT_KEYS, "instruction file")
-    ensure_required_keys(data, ROOT_KEYS, "instruction file")
 
-    base_dir = instructions_path.parent.resolve()
+# ---------------------------------------------------------------------------
+# Script to AppleScript compilation
+# ---------------------------------------------------------------------------
 
-    template = resolve_path(ensure_non_empty_string(data["template"], "template"), base_dir)
-    output = resolve_path(ensure_non_empty_string(data["output"], "output"), base_dir)
+def _group_operations_into_slides(operations: list[dict[str, Any]]) -> dict[str, Any]:
+    """Group parsed operations into a structured build plan.
 
-    ensure_existing_file(template, "template", ".key")
-    ensure_output_suffix(output, ".key", "output")
+    Returns a dict with:
+      template, output, force, slides (list of slide dicts), delete_range, has_save
+    Each slide dict has: master, content, images, text_boxes, overrides, notes
+    """
+    open_op = None
+    slides: list[dict[str, Any]] = []
+    delete_range: tuple[int, int] | None = None
+    has_save = False
+    # Track non-add-slide operations that reference slide numbers
+    deferred_ops: list[dict[str, Any]] = []
+    slide_count = 0
 
-    if template == output:
-        fail("output must be different from template")
-
-    slides = data["slides"]
-    if not isinstance(slides, list) or not slides:
-        fail("slides must be a non-empty array")
-
-    validated_slides: list[dict[str, Any]] = []
-
-    for slide_index, slide in enumerate(slides, start=1):
-        slide_field = f"slides[{slide_index}]"
-        if not isinstance(slide, dict):
-            fail(f"{slide_field} must be an object")
-        ensure_allowed_keys(slide, SLIDE_KEYS, slide_field)
-        ensure_required_keys(slide, {"layout", "content"}, slide_field)
-
-        if "text_boxes" in slide and "textBoxes" in slide:
-            fail(f"{slide_field} cannot contain both 'text_boxes' and 'textBoxes'; use only one")
-
-        layout = slide.get("layout")
-        if not isinstance(layout, str) or layout not in LAYOUT_SPECS:
-            fail(
-                f"{slide_field}.layout must be one of: "
-                + ", ".join(sorted(LAYOUT_SPECS.keys()))
-            )
-
-        content_field = f"{slide_field}.content"
-        content = slide["content"]
-        if not isinstance(content, dict):
-            fail(f"{content_field} must be an object")
-
-        required_content_keys = set(LAYOUT_SPECS[layout]["content_order"])
-        ensure_allowed_keys(content, required_content_keys, content_field)
-        ensure_required_keys(content, required_content_keys, content_field)
-        validated_content: dict[str, dict[str, Any]] = {}
-        for key in LAYOUT_SPECS[layout]["content_order"]:
-            raw = content[key]
-            validated_content[key] = _validate_content_value(
-                raw, f"{content_field}.{key}",
-            )
-
-        validated_images: list[dict[str, Any]] = []
-        images = slide.get("images", [])
-        if not isinstance(images, list):
-            fail(f"{slide_field}.images must be an array")
-        for image_index, image in enumerate(images, start=1):
-            image_field = f"{slide_field}.images[{image_index}]"
-            if not isinstance(image, dict):
-                fail(f"{image_field} must be an object")
-            ensure_allowed_keys(image, IMAGE_KEYS, image_field)
-            ensure_required_keys(image, {"file"}, image_field)
-            image_path = resolve_path(ensure_non_empty_string(image["file"], f"{image_field}.file"), base_dir)
-            ensure_existing_file(image_path, f"{image_field}.file")
-            position = validate_point(image.get("position", [0, 0]), f"{image_field}.position")
-            size = None
-            if "size" in image:
-                size = validate_size(image["size"], f"{image_field}.size")
-            validated_images.append({
-                "file": image_path,
-                "position": position,
-                "size": size,
+    for op in operations:
+        if op["op"] == "open":
+            if open_op is not None:
+                fail("Script contains multiple 'open' commands")
+            open_op = op
+        elif op["op"] == "add-slide":
+            slide_count += 1
+            slides.append({
+                "master": op["master"],
+                "content": [],
+                "images": [],
+                "text_boxes": [],
+                "overrides": [],
+                "notes": None,
             })
+        elif op["op"] in ("set-text", "set-notes", "add-image", "add-text-box", "override"):
+            deferred_ops.append(op)
+        elif op["op"] == "delete-slides":
+            delete_range = (op["start"], op["end"])
+        elif op["op"] == "save":
+            has_save = True
 
-        validated_text_boxes: list[dict[str, Any]] = []
-        text_boxes = slide.get("text_boxes", slide.get("textBoxes", []))
-        if not isinstance(text_boxes, list):
-            fail(f"{slide_field}.text_boxes must be an array")
-        for box_index, box in enumerate(text_boxes, start=1):
-            box_field = f"{slide_field}.text_boxes[{box_index}]"
-            if not isinstance(box, dict):
-                fail(f"{box_field} must be an object")
-            ensure_allowed_keys(box, TEXT_BOX_KEYS, box_field)
-            ensure_required_keys(box, {"text", "position", "size"}, box_field)
-            position = validate_point(box["position"], f"{box_field}.position")
-            size = validate_size(box["size"], f"{box_field}.size")
-            font = ensure_non_empty_string(box.get("font", DEFAULT_TEXTBOX_STYLE["font"]), f"{box_field}.font")
-            font_size = ensure_number(
-                box.get("fontSize", box.get("font_size", DEFAULT_TEXTBOX_STYLE["fontSize"])),
-                f"{box_field}.fontSize",
-                minimum=0.01,
-            )
-            color = normalize_color(box.get("color", DEFAULT_TEXTBOX_STYLE["color"]), f"{box_field}.color")
-            validated_text_boxes.append({
-                "text": "" if box.get("text") is None else str(box.get("text")),
-                "position": position,
-                "size": size,
-                "font": font,
-                "fontSize": float(font_size),
-                "color": color,
+    if open_op is None:
+        fail("Script must contain an 'open' command")
+    if not slides:
+        fail("Script must contain at least one 'add-slide' command")
+
+    # Resolve deferred operations to their slides
+    for op in deferred_ops:
+        slide_idx = op["slide"] - 1  # 1-based to 0-based
+        if slide_idx < 0 or slide_idx >= len(slides):
+            fail(f"Slide {op['slide']} is out of range (have {len(slides)} slides)")
+        slide = slides[slide_idx]
+
+        if op["op"] == "set-text":
+            slide["content"].append({
+                "target": op["target"],
+                "text": op["text"],
+                "indents": op["indents"],
             })
-
-        validated_overrides: list[dict[str, Any]] = []
-        overrides = slide.get("overrides", [])
-        if not isinstance(overrides, list):
-            fail(f"{slide_field}.overrides must be an array")
-        for override_index, override in enumerate(overrides, start=1):
-            override_field = f"{slide_field}.overrides[{override_index}]"
-            if not isinstance(override, dict):
-                fail(f"{override_field} must be an object")
-            ensure_allowed_keys(override, OVERRIDE_KEYS, override_field)
-            ensure_required_keys(override, {"target"}, override_field)
-            if len(set(override) - {"target"}) == 0:
-                fail(f"{override_field} must include at least one change besides 'target'")
-
-            target = validate_override_target(override["target"], layout, f"{override_field}.target")
-            validated_override: dict[str, Any] = {"target": target}
-
-            if target.startswith("image:"):
-                illegal_fields = sorted({"text", "font", "fontSize", "font_size", "color"} & set(override))
-                if illegal_fields:
-                    fail(
-                        f"{override_field} targets an image, so it cannot set text properties: "
-                        + ", ".join(repr(field) for field in illegal_fields)
-                    )
-
-            if "text" in override:
-                validated_override["text"] = "" if override["text"] is None else str(override["text"])
-            if "position" in override:
-                validated_override["position"] = validate_point(override["position"], f"{override_field}.position")
-            if "size" in override:
-                validated_override["size"] = validate_size(override["size"], f"{override_field}.size")
-            if "font" in override:
-                validated_override["font"] = ensure_non_empty_string(override["font"], f"{override_field}.font")
-            if "fontSize" in override or "font_size" in override:
-                font_size = override.get("fontSize", override.get("font_size"))
-                validated_override["fontSize"] = ensure_number(
-                    font_size,
-                    f"{override_field}.fontSize",
-                    minimum=0.01,
-                )
-            if "color" in override:
-                validated_override["color"] = normalize_color(override["color"], f"{override_field}.color")
-            if "opacity" in override:
-                validated_override["opacity"] = ensure_number(
-                    override["opacity"],
-                    f"{override_field}.opacity",
-                    minimum=0,
-                    maximum=100,
-                )
-            if "rotation" in override:
-                validated_override["rotation"] = ensure_number(
-                    override["rotation"],
-                    f"{override_field}.rotation",
-                )
-            validated_overrides.append(validated_override)
-
-        notes = slide.get("notes")
-        if notes is not None:
-            notes = str(notes)
-
-        validated_slides.append({
-            "layout": layout,
-            "content": validated_content,
-            "images": validated_images,
-            "text_boxes": validated_text_boxes,
-            "overrides": validated_overrides,
-            "notes": notes,
-        })
+        elif op["op"] == "set-notes":
+            slide["notes"] = op["text"]
+        elif op["op"] == "add-image":
+            slide["images"].append({
+                "file": op["file"],
+                "position": op["position"],
+                "size": op["size"],
+            })
+        elif op["op"] == "add-text-box":
+            slide["text_boxes"].append({
+                "text": op["text"],
+                "position": op["position"],
+                "size": op["size"],
+                "font": op["font"],
+                "fontSize": op["fontSize"],
+                "color": op["color"],
+            })
+        elif op["op"] == "override":
+            override_dict: dict[str, Any] = {"target": op["target"]}
+            for key in ("text", "position", "size", "font", "fontSize", "color", "opacity", "rotation"):
+                if key in op:
+                    override_dict[key] = op[key]
+            slide["overrides"].append(override_dict)
 
     return {
-        "template": template,
-        "output": output,
-        "slides": validated_slides,
+        "template": open_op["template"],
+        "output": open_op["output"],
+        "force": open_op["force"],
+        "slides": slides,
+        "delete_range": delete_range,
+        "has_save": has_save,
     }
 
 
+# ---------------------------------------------------------------------------
+# AppleScript generation
+# ---------------------------------------------------------------------------
+
 def build_slide_applescript(slide: dict[str, Any], slide_number: int) -> list[str]:
-    layout = slide["layout"]
-    spec = LAYOUT_SPECS[layout]
+    master = slide["master"]
     body_lines: list[str] = []
     body_lines.append(
-        f"set newSlide to make new slide with properties {{base slide: master slide {applescript_string(spec['master'])}}}"
+        f"set newSlide to make new slide with properties {{base slide: master slide {applescript_string(master)}}}"
     )
 
-    for key in spec["content_order"]:
-        accessor = spec["accessors"][key]
-        expr = slide_item_expression(accessor)
-        content_val = slide["content"].get(key, {"text": "", "indents": None})
-        if isinstance(content_val, str):
-            # Legacy plain-string path (in case callers bypass validation)
-            body_lines.append(f"set object text of {expr} to {applescript_string(content_val)}")
-        else:
-            body_lines.append(f"set object text of {expr} to {applescript_string(content_val['text'])}")
-            if content_val.get("indents"):
-                body_lines.append(f"tell object text of {expr}")
-                for para_idx, indent_lvl in enumerate(content_val["indents"], start=1):
-                    body_lines.append(f"  set indent level of paragraph {para_idx} to {indent_lvl}")
-                body_lines.append("end tell")
+    for content_item in slide["content"]:
+        target = content_item["target"]
+        expr = target_to_applescript(target)
+        text = content_item["text"]
+        body_lines.append(f"set object text of {expr} to {applescript_string(text)}")
+        indents = content_item.get("indents")
+        if indents:
+            body_lines.append(f"tell object text of {expr}")
+            for para_idx, indent_lvl in enumerate(indents, start=1):
+                body_lines.append(f"  set indent level of paragraph {para_idx} to {indent_lvl}")
+            body_lines.append("end tell")
 
     if slide.get("notes") is not None:
         body_lines.append(f"set presenter notes of newSlide to {applescript_string(slide['notes'])}")
@@ -596,38 +629,38 @@ def build_slide_applescript(slide: dict[str, Any], slide_number: int) -> list[st
         body_lines.append("end tell")
 
     for override in slide["overrides"]:
-        target_expr = override_target_expression(override["target"], layout)
+        expr = target_to_applescript(override["target"])
         if "text" in override:
-            body_lines.append(f"set object text of {target_expr} to {applescript_string(override['text'])}")
+            body_lines.append(f"set object text of {expr} to {applescript_string(override['text'])}")
         if "position" in override:
             body_lines.append(
-                f"set position of {target_expr} to {{{numeric_literal(override['position'][0])}, {numeric_literal(override['position'][1])}}}"
+                f"set position of {expr} to {{{numeric_literal(override['position'][0])}, {numeric_literal(override['position'][1])}}}"
             )
         if "size" in override:
-            body_lines.append(f"set width of {target_expr} to {numeric_literal(override['size'][0])}")
-            body_lines.append(f"set height of {target_expr} to {numeric_literal(override['size'][1])}")
+            body_lines.append(f"set width of {expr} to {numeric_literal(override['size'][0])}")
+            body_lines.append(f"set height of {expr} to {numeric_literal(override['size'][1])}")
         if "font" in override:
-            body_lines.append(f"set font of object text of {target_expr} to {applescript_string(override['font'])}")
+            body_lines.append(f"set font of object text of {expr} to {applescript_string(override['font'])}")
         if "fontSize" in override:
-            body_lines.append(f"set size of object text of {target_expr} to {numeric_literal(override['fontSize'])}")
+            body_lines.append(f"set size of object text of {expr} to {numeric_literal(override['fontSize'])}")
         if "color" in override:
             body_lines.append(
-                f"set color of object text of {target_expr} to {{{override['color'][0]}, {override['color'][1]}, {override['color'][2]}}}"
+                f"set color of object text of {expr} to {{{override['color'][0]}, {override['color'][1]}, {override['color'][2]}}}"
             )
         if "opacity" in override:
-            body_lines.append(f"set opacity of {target_expr} to {numeric_literal(override['opacity'])}")
+            body_lines.append(f"set opacity of {expr} to {numeric_literal(override['opacity'])}")
         if "rotation" in override:
-            body_lines.append(f"set rotation of {target_expr} to {numeric_literal(override['rotation'])}")
+            body_lines.append(f"set rotation of {expr} to {numeric_literal(override['rotation'])}")
 
     lines: list[str] = [
-        f"    -- Slide {slide_number}: {layout}",
+        f"    -- Slide {slide_number}: {master}",
         "    try",
     ]
     lines.extend(f"      {line}" for line in body_lines)
     lines.extend(
         [
             "    on error errMsg number errNum",
-            f"      error {applescript_string(f'Slide {slide_number} ({layout}) failed: ')} & errMsg number errNum",
+            f"      error {applescript_string(f'Slide {slide_number} ({master}) failed: ')} & errMsg number errNum",
             "    end try",
             "",
         ]
@@ -640,7 +673,7 @@ def build_build_applescript(
     slides: list[dict[str, Any]],
     *,
     start_slide_number: int = 1,
-    delete_template_slide_count: int | None = None,
+    delete_range: tuple[int, int] | None = None,
 ) -> str:
     lines: list[str] = [
         f"with timeout of {APPLESCRIPT_LONG_TIMEOUT_SECONDS} seconds",
@@ -656,10 +689,11 @@ def build_build_applescript(
     for index, slide in enumerate(slides, start=start_slide_number):
         lines.extend(build_slide_applescript(slide, index))
 
-    if delete_template_slide_count is not None:
+    if delete_range is not None:
+        start, end = delete_range
         lines.extend(
             [
-                f"      repeat with i from {delete_template_slide_count} to 1 by -1",
+                f"      repeat with i from {end} to {start} by -1",
                 "        delete slide i",
                 "      end repeat",
             ]
@@ -689,115 +723,134 @@ def run_osascript(script: str) -> str:
         input=script,
         text=True,
         capture_output=True,
-        encoding="utf-8",
+        timeout=APPLESCRIPT_LONG_TIMEOUT_SECONDS + 60,
     )
     if result.returncode != 0:
-        error_parts = []
-        if result.stderr and result.stderr.strip():
-            error_parts.append(result.stderr.strip())
-        if result.stdout and result.stdout.strip():
-            error_parts.append(result.stdout.strip())
-        error_text = "\n".join(error_parts).strip()
-        if not error_text:
-            error_text = f"osascript failed with exit code {result.returncode}"
-        raise RuntimeError(error_text)
+        error = result.stderr.strip()
+        raise RuntimeError(f"osascript failed: {error}")
     return result.stdout
 
 
 def decode_escaped(value: str) -> str:
-    return codecs.decode(value, "unicode_escape")
+    try:
+        return codecs.decode(value, "unicode_escape")
+    except Exception:
+        return value
 
+
+# ---------------------------------------------------------------------------
+# Inspect
+# ---------------------------------------------------------------------------
 
 def build_inspect_applescript(file_path: Path) -> str:
-    backslash = applescript_string("\\")
-    double_backslash = applescript_string("\\\\")
-    escaped_field_sep = applescript_string("\\u001f")
-    escaped_newline = applescript_string("\\n")
-
-    return f'''on replace_text(find_text, replace_text, source_text)
-  set AppleScript's text item delimiters to find_text
-  set parts to text items of source_text
-  set AppleScript's text item delimiters to replace_text
-  set result_text to parts as text
-  set AppleScript's text item delimiters to ""
-  return result_text
-end replace_text
-
-on escape_text(source_text, field_sep)
-  set t to source_text as text
-  set t to my replace_text({backslash}, {double_backslash}, t)
-  set t to my replace_text(field_sep, {escaped_field_sep}, t)
-  set t to my replace_text(return, {escaped_newline}, t)
-  set t to my replace_text(linefeed, {escaped_newline}, t)
-  return t
-end escape_text
-
-on join_lines(line_list)
-  set AppleScript's text item delimiters to linefeed
-  set joined_text to line_list as text
-  set AppleScript's text item delimiters to ""
-  return joined_text
-end join_lines
-
-set fieldSep to ASCII character 31
-set outLines to {{}}
-
+    sep = FIELD_SEP
+    return f"""\
+with timeout of {APPLESCRIPT_LONG_TIMEOUT_SECONDS} seconds
 tell application "Keynote"
-  set inputFile to {applescript_posix_file(file_path)}
-  set theDoc to open inputFile
-  tell theDoc
-    set end of outLines to "DOC" & fieldSep & width & fieldSep & height & fieldSep & (count of slides)
-    repeat with i from 1 to count of master slides
-      set end of outLines to "MASTER" & fieldSep & i & fieldSep & my escape_text(name of master slide i, fieldSep)
-    end repeat
-    repeat with i from 1 to count of slides
-      set s to slide i
-      set masterName to ""
-      set notesText to ""
-      try
-        set masterName to name of base slide of s
-      end try
-      try
-        set notesText to presenter notes of s
-      end try
-      set end of outLines to "SLIDE" & fieldSep & i & fieldSep & my escape_text(masterName, fieldSep)
-      set end of outLines to "NOTES" & fieldSep & i & fieldSep & my escape_text(notesText, fieldSep)
-      repeat with j from 1 to count of text items of s
-        set ti to text item j of s
-        set tiPos to position of ti
-        set end of outLines to "TEXT" & fieldSep & i & fieldSep & j & fieldSep & my escape_text(object text of ti, fieldSep) & fieldSep & item 1 of tiPos & fieldSep & item 2 of tiPos & fieldSep & width of ti & fieldSep & height of ti
-      end repeat
-      repeat with j from 1 to count of images of s
-        set img to image j of s
-        set imgPos to position of img
-        set end of outLines to "IMAGE" & fieldSep & i & fieldSep & j & fieldSep & item 1 of imgPos & fieldSep & item 2 of imgPos & fieldSep & width of img & fieldSep & height of img
-      end repeat
-      repeat with j from 1 to count of shapes of s
-        set sh to shape j of s
-        set shPos to position of sh
-        set shText to ""
+    set theDoc to open {applescript_posix_file(file_path)}
+    try
+        tell theDoc
+            set slideW to width
+            set slideH to height
+            set masterNames to {{}}
+            repeat with ms in master slides
+                set end of masterNames to name of ms
+            end repeat
+            set slideCount to count of slides
+            set resultLines to {{}}
+            set end of resultLines to ("DIMENSIONS{sep}" & slideW & "{sep}" & slideH)
+            set end of resultLines to ("MASTERS{sep}" & my joinList(masterNames, "{sep}"))
+            set end of resultLines to ("SLIDECOUNT{sep}" & slideCount)
+            repeat with slideIndex from 1 to slideCount
+                set theSlide to slide slideIndex
+                set masterName to name of base slide of theSlide
+                set notesText to presenter notes of theSlide
+                set end of resultLines to ("SLIDE{sep}" & slideIndex & "{sep}" & masterName & "{sep}" & my escapeField(notesText))
+                try
+                    set tiCount to count of text items of theSlide
+                    repeat with tiIndex from 1 to tiCount
+                        set ti to text item tiIndex of theSlide
+                        set tiText to object text of ti
+                        set tiPos to position of ti
+                        set tiW to width of ti
+                        set tiH to height of ti
+                        set end of resultLines to ("TEXTITEM{sep}" & slideIndex & "{sep}" & tiIndex & "{sep}" & my escapeField(tiText) & "{sep}" & (item 1 of tiPos) & "{sep}" & (item 2 of tiPos) & "{sep}" & tiW & "{sep}" & tiH)
+                    end repeat
+                end try
+                try
+                    set imgCount to count of images of theSlide
+                    repeat with imgIndex from 1 to imgCount
+                        set img to image imgIndex of theSlide
+                        set imgPos to position of img
+                        set imgW to width of img
+                        set imgH to height of img
+                        set end of resultLines to ("IMAGE{sep}" & slideIndex & "{sep}" & imgIndex & "{sep}" & (item 1 of imgPos) & "{sep}" & (item 2 of imgPos) & "{sep}" & imgW & "{sep}" & imgH)
+                    end repeat
+                end try
+                try
+                    set shapeCount to count of shapes of theSlide
+                    repeat with shapeIndex from 1 to shapeCount
+                        set sh to shape shapeIndex of theSlide
+                        set shText to ""
+                        try
+                            set shText to object text of sh
+                        end try
+                        set shPos to position of sh
+                        set shW to width of sh
+                        set shH to height of sh
+                        set end of resultLines to ("SHAPE{sep}" & slideIndex & "{sep}" & shapeIndex & "{sep}" & my escapeField(shText) & "{sep}" & (item 1 of shPos) & "{sep}" & (item 2 of shPos) & "{sep}" & shW & "{sep}" & shH)
+                    end repeat
+                end try
+            end repeat
+        end tell
+        close theDoc saving no
+        set AppleScript's text item delimiters to linefeed
+        return resultLines as text
+    on error errMsg number errNum
         try
-          set shText to object text of sh
+            close theDoc saving no
         end try
-        set end of outLines to "SHAPE" & fieldSep & i & fieldSep & j & fieldSep & my escape_text(shText, fieldSep) & fieldSep & item 1 of shPos & fieldSep & item 2 of shPos & fieldSep & width of sh & fieldSep & height of sh
-      end repeat
-    end repeat
-  end tell
-  close theDoc saving no
+        error errMsg number errNum
+    end try
 end tell
+end timeout
 
-return my join_lines(outLines)
-'''
+on escapeField(theText)
+    set escaped to ""
+    repeat with c in characters of theText
+        set c to c as text
+        if c is "\\" then
+            set escaped to escaped & "\\\\\\\\"
+        else if c is return then
+            set escaped to escaped & "\\\\n"
+        else if c is linefeed then
+            set escaped to escaped & "\\\\n"
+        else
+            set escaped to escaped & c
+        end if
+    end repeat
+    return escaped
+end escapeField
+
+on joinList(theList, delim)
+    set oldDelim to AppleScript's text item delimiters
+    set AppleScript's text item delimiters to delim
+    set joined to theList as text
+    set AppleScript's text item delimiters to oldDelim
+    return joined
+end joinList
+"""
 
 
 def filter_text_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    filtered: list[dict[str, Any]] = []
     seen_positions: set[tuple[float, float, float, float]] = set()
+    filtered: list[dict[str, Any]] = []
     for item in items:
-        width, height = item["size"]
-        if width <= 0 or height <= 0:
+        w = float(item["size"][0])
+        h = float(item["size"][1])
+        if w == 0 and h == 0:
             continue
-        key = (*item["position"], *item["size"])
+        key = (float(item["position"][0]), float(item["position"][1]), w, h)
         if key in seen_positions:
             continue
         seen_positions.add(key)
@@ -806,73 +859,73 @@ def filter_text_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def inspect_file(file_path: Path) -> dict[str, Any]:
-    output = run_osascript(build_inspect_applescript(file_path))
-    slides: dict[int, dict[str, Any]] = {}
-    masters: list[str] = []
+    script = build_inspect_applescript(file_path)
+    raw = run_osascript(script)
+
     dimensions: list[int] = [0, 0]
+    masters: list[str] = []
     slide_count = 0
+    slides_data: dict[int, dict[str, Any]] = {}
 
-    for raw_line in output.splitlines():
-        if not raw_line:
-            continue
-        parts = raw_line.split(FIELD_SEP)
-        record_type = parts[0]
-
-        if record_type == "DOC":
+    for line in raw.splitlines():
+        parts = line.split(FIELD_SEP)
+        kind = parts[0]
+        if kind == "DIMENSIONS":
             dimensions = [int(float(parts[1])), int(float(parts[2]))]
-            slide_count = int(parts[3])
-        elif record_type == "MASTER":
-            masters.append(decode_escaped(parts[2]))
-        elif record_type == "SLIDE":
-            slide_index = int(parts[1])
-            slides[slide_index] = {
-                "index": slide_index,
-                "master": decode_escaped(parts[2]),
-                "notes": "",
+        elif kind == "MASTERS":
+            masters = [p for p in parts[1:] if p]
+        elif kind == "SLIDECOUNT":
+            slide_count = int(parts[1])
+        elif kind == "SLIDE":
+            idx = int(parts[1])
+            slides_data[idx] = {
+                "index": idx,
+                "master": parts[2],
+                "notes": decode_escaped(parts[3]) if len(parts) > 3 else "",
                 "textItems": [],
                 "images": [],
                 "shapes": [],
             }
-        elif record_type == "NOTES":
-            slide_index = int(parts[1])
-            slides.setdefault(slide_index, {
-                "index": slide_index,
-                "master": "",
-                "notes": "",
-                "textItems": [],
-                "images": [],
-                "shapes": [],
-            })["notes"] = decode_escaped(parts[2])
-        elif record_type == "TEXT":
-            slide_index = int(parts[1])
-            slides[slide_index]["textItems"].append({
+        elif kind == "TEXTITEM":
+            idx = int(parts[1])
+            if idx not in slides_data:
+                continue
+            slides_data[idx]["textItems"].append({
                 "index": int(parts[2]),
                 "text": decode_escaped(parts[3]),
                 "position": [float(parts[4]), float(parts[5])],
                 "size": [float(parts[6]), float(parts[7])],
             })
-        elif record_type == "IMAGE":
-            slide_index = int(parts[1])
-            slides[slide_index]["images"].append({
+        elif kind == "IMAGE":
+            idx = int(parts[1])
+            if idx not in slides_data:
+                continue
+            slides_data[idx]["images"].append({
                 "index": int(parts[2]),
                 "position": [float(parts[3]), float(parts[4])],
                 "size": [float(parts[5]), float(parts[6])],
             })
-        elif record_type == "SHAPE":
-            slide_index = int(parts[1])
-            slides[slide_index]["shapes"].append({
-                "index": int(parts[2]),
-                "text": decode_escaped(parts[3]),
-                "position": [float(parts[4]), float(parts[5])],
-                "size": [float(parts[6]), float(parts[7])],
-            })
+        elif kind == "SHAPE":
+            idx = int(parts[1])
+            if idx not in slides_data:
+                continue
+            text = decode_escaped(parts[3]) if len(parts) > 3 else ""
+            pos = [float(parts[4]), float(parts[5])]
+            sz = [float(parts[6]), float(parts[7])]
+            if sz[0] > 0 and sz[1] > 0:
+                slides_data[idx]["shapes"].append({
+                    "index": int(parts[2]),
+                    "text": text,
+                    "position": pos,
+                    "size": sz,
+                })
 
-    ordered_slides = [slides[index] for index in sorted(slides)]
-    for slide in ordered_slides:
-        slide["textItems"] = filter_text_items(slide["textItems"])
-        slide["shapes"] = [
-            shape for shape in slide["shapes"] if shape["size"][0] > 0 and shape["size"][1] > 0
-        ]
+    ordered_slides: list[dict[str, Any]] = []
+    for i in range(1, slide_count + 1):
+        if i in slides_data:
+            slide = slides_data[i]
+            slide["textItems"] = filter_text_items(slide["textItems"])
+            ordered_slides.append(slide)
 
     return {
         "file": str(file_path),
@@ -883,85 +936,88 @@ def inspect_file(file_path: Path) -> dict[str, Any]:
     }
 
 
+# ---------------------------------------------------------------------------
+# Export
+# ---------------------------------------------------------------------------
+
 def build_export_applescript(input_path: Path, output_path: Path) -> str:
-    return f'''with timeout of {APPLESCRIPT_LONG_TIMEOUT_SECONDS} seconds
+    return f"""\
+with timeout of {APPLESCRIPT_LONG_TIMEOUT_SECONDS} seconds
 tell application "Keynote"
-  set theDoc to missing value
-  try
-    set inputFile to {applescript_posix_file(input_path)}
-    set outputFile to {applescript_posix_file(output_path)}
-    set theDoc to open inputFile
-    tell theDoc
-      export to outputFile as PDF
-    end tell
-    close theDoc saving no
-  on error errMsg number errNum
+    set theDoc to open {applescript_posix_file(input_path)}
     try
-      if theDoc is not missing value then close theDoc saving no
+        export theDoc to {applescript_posix_file(output_path)} as PDF
+        close theDoc saving no
+    on error errMsg number errNum
+        try
+            close theDoc saving no
+        end try
+        error errMsg number errNum
     end try
-    error "Export failed: " & errMsg number errNum
-  end try
 end tell
 end timeout
-'''
-
-
-def load_instruction_json(instructions_path: Path) -> Any:
-    ensure_existing_file(instructions_path, "Instruction file")
-    try:
-        with instructions_path.open("r", encoding="utf-8") as f:
-            return json.load(f)
-    except json.JSONDecodeError as exc:
-        fail(
-            f"Invalid JSON in {instructions_path} at line {exc.lineno}, column {exc.colno}: {exc.msg}"
-        )
+"""
 
 
 def validate_template_masters(template_path: Path, slides: list[dict[str, Any]]) -> dict[str, Any]:
-    required_masters = {LAYOUT_SPECS[slide['layout']]['master'] for slide in slides}
-    template_info = inspect_file(template_path)
-    available_masters = set(template_info["masters"])
-    missing = sorted(required_masters - available_masters)
+    info = inspect_file(template_path)
+    available = set(info.get("masters", []))
+    required = {slide["master"] for slide in slides}
+    missing = sorted(required - available)
     if missing:
         fail(
-            f"Template is missing required master slide(s): {', '.join(repr(name) for name in missing)}"
+            f"Template is missing required master slide(s): {', '.join(repr(name) for name in missing)}. "
+            f"Available: {', '.join(repr(name) for name in sorted(available))}"
         )
-    return template_info
+    return info
 
 
-def command_build(args: argparse.Namespace) -> int:
-    instructions_path = Path(args.instructions).resolve()
-    raw_data = load_instruction_json(instructions_path)
-    instructions = validate_instructions(raw_data, instructions_path)
-    output_path: Path = instructions["output"]
+# ---------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------
+
+def command_run(args: argparse.Namespace) -> int:
+    script_path = Path(args.script).resolve()
+    if not script_path.exists():
+        fail(f"Script file not found: {script_path}")
+
+    operations = parse_script(script_path)
+    plan = _group_operations_into_slides(operations)
+
+    output_path: Path = plan["output"]
+
     if args.print_applescript:
-        print(build_build_applescript(output_path, instructions["slides"]))
+        delete_range = plan["delete_range"]
+        script = build_build_applescript(output_path, plan["slides"], delete_range=delete_range)
+        print(script)
         return 0
 
     ensure_runtime_available()
-    template_info = validate_template_masters(instructions["template"], instructions["slides"])
-    template_slide_count = int(template_info["slideCount"])
+
+    if args.check_template:
+        validate_template_masters(plan["template"], plan["slides"])
 
     if output_path.exists():
-        if args.force:
+        if plan["force"] or args.force:
             remove_path(output_path)
         else:
-            fail(f"Output already exists: {output_path} (use --force to overwrite)")
+            fail(f"Output already exists: {output_path} (use --force or add --force to open command)")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(instructions["template"], output_path)
+    shutil.copy2(plan["template"], output_path)
 
     removed_partial_output = False
     try:
-        total_slides = len(instructions["slides"])
+        total_slides = len(plan["slides"])
         for batch_start in range(0, total_slides, KEYNOTE_BUILD_BATCH_SIZE):
-            batch_slides = instructions["slides"][batch_start: batch_start + KEYNOTE_BUILD_BATCH_SIZE]
-            delete_template_slide_count = template_slide_count if batch_start + len(batch_slides) >= total_slides else None
+            batch_slides = plan["slides"][batch_start: batch_start + KEYNOTE_BUILD_BATCH_SIZE]
+            is_last_batch = batch_start + len(batch_slides) >= total_slides
+            delete_range = plan["delete_range"] if is_last_batch else None
             script = build_build_applescript(
                 output_path,
                 batch_slides,
                 start_slide_number=batch_start + 1,
-                delete_template_slide_count=delete_template_slide_count,
+                delete_range=delete_range,
             )
             run_osascript(script)
     except Exception as exc:
@@ -1015,28 +1071,13 @@ def command_export(args: argparse.Namespace) -> int:
     return 0
 
 
-def command_validate(args: argparse.Namespace) -> int:
-    instructions_path = Path(args.instructions).resolve()
-    raw_data = load_instruction_json(instructions_path)
-    instructions = validate_instructions(raw_data, instructions_path)
-    if args.check_template:
-        ensure_runtime_available()
-        validate_template_masters(instructions["template"], instructions["slides"])
-    print(json.dumps({
-        "ok": True,
-        "template": str(instructions["template"]),
-        "output": str(instructions["output"]),
-        "slides": len(instructions["slides"]),
-        "checkedTemplateMasters": bool(args.check_template),
-    }, indent=2))
-    return 0
-
+# ---------------------------------------------------------------------------
+# Insert equations
+# ---------------------------------------------------------------------------
 
 def _build_equation_insert_script(
     slide_num: int, placeholder: str, latex: str, render_timeout: int,
 ) -> str:
-    """Build AppleScript that finds *placeholder* on *slide_num* and replaces
-    it with a rendered LaTeX equation via GUI scripting (System Events)."""
     ph_as = applescript_string(placeholder)
     latex_as = applescript_string(latex)
     return f"""\
@@ -1105,12 +1146,6 @@ end tell
 
 
 def command_insert_equations(args: argparse.Namespace) -> int:
-    """Replace [PLACEHOLDER] tokens in a Keynote slide with rendered LaTeX
-    equations using the Insert > Equation GUI.
-
-    Requires: macOS Accessibility permissions for the calling process
-    (Terminal / osascript) and an open Keynote document as front document.
-    """
     mappings_path = Path(args.mappings).resolve()
     if not mappings_path.exists():
         fail(f"Mappings file not found: {mappings_path}")
@@ -1182,33 +1217,33 @@ def command_insert_equations(args: argparse.Namespace) -> int:
     return 0
 
 
+# ---------------------------------------------------------------------------
+# Argument parser
+# ---------------------------------------------------------------------------
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="keynote-cli")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    build_parser_ = subparsers.add_parser("build", help="Build a presentation from an instruction JSON file")
-    build_parser_.add_argument("instructions", help="Path to instructions.json")
-    build_parser_.add_argument("--force", action="store_true", help="Overwrite output if it already exists")
-    build_parser_.add_argument(
+    run_parser = subparsers.add_parser("run", help="Run a keynote-cli script file")
+    run_parser.add_argument("script", help="Path to script file")
+    run_parser.add_argument("--force", action="store_true", help="Overwrite output if it already exists")
+    run_parser.add_argument(
         "--keep-failed-output",
         action="store_true",
-        help="Do not delete the partially built output file if Keynote fails",
+        help="Do not delete the partially built output file on failure",
     )
-    build_parser_.add_argument(
+    run_parser.add_argument(
         "--print-applescript",
         action="store_true",
         help="Print the generated AppleScript instead of running it",
     )
-    build_parser_.set_defaults(func=command_build)
-
-    validate_parser = subparsers.add_parser("validate", help="Validate an instruction JSON file")
-    validate_parser.add_argument("instructions", help="Path to instructions.json")
-    validate_parser.add_argument(
+    run_parser.add_argument(
         "--check-template",
         action="store_true",
-        help="Also open the template in Keynote and verify that all required master slides exist",
+        help="Open the template in Keynote and verify that all required master slides exist",
     )
-    validate_parser.set_defaults(func=command_validate)
+    run_parser.set_defaults(func=command_run)
 
     inspect_parser = subparsers.add_parser("inspect", help="Inspect a .key file and print JSON")
     inspect_parser.add_argument("file", help="Path to .key file")

@@ -2,42 +2,43 @@
 
 ## Architecture
 
-**AppleScript via `osascript`**, called from Python.
+**AppleScript via `osascript`**, called from Python. Scripts are compiled into batched AppleScript for performance.
 
-- **JXA rejected**: `masterSlides` is completely broken (`"Can't convert types"` on every access). Cannot list, select, or create slides from specific layouts.
-- **Swift deferred**: No benefit at this stage. AppleScript handles everything needed. No compilation step.
+- **JXA rejected**: `masterSlides` is completely broken (`"Can't convert types"` on every access).
+- **Swift deferred**: No benefit at this stage.
 
 ## Capability status
 
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Open/save `.key` files | done | |
-| List master slide names | done | |
-| Create slide from master layout | done | `make new slide with properties {base slide: master slide "X"}` |
-| Set text on placeholders | done | via `defaultTitleItem`, `defaultBodyItem`, `text item N` |
-| Set paragraph indent levels | done | via `set indent level of paragraph N` |
+| Create slide from any named master | done | |
+| Set text on any item | done | via `defaultTitleItem`, `defaultBodyItem`, `textItem:N` |
+| Set paragraph indent levels | done | via `--indents` |
 | Add free text items | done | Position, size, font, color |
 | Set font/size/color on text | done | Must use font variant names (e.g. `"Helvetica-Bold"`) |
-| Add images | done | `make new image with properties {file:..., position:..., width:..., height:...}` |
-| Position/resize elements | done | |
-| Override element properties | done | Supports opacity, rotation, text, position, size, font, color |
-| Duplicate/delete slides | done | |
+| Add images | done | With position/size |
+| Override element properties | done | text, position, size, font, color, opacity, rotation |
+| Set presenter notes | done | |
+| Delete slides by range | done | |
 | Export to PDF | done | |
-| Inspect slide structure | done | JSON output with text items, images, shapes, notes |
-| Insert LaTeX equations | done | Via GUI scripting (System Events) |
-| Batch slide creation | done | 20 slides per AppleScript call |
-| Per-slide error handling | done | Error messages include slide number and layout |
+| Inspect slide structure | done | JSON output |
+| Insert LaTeX equations | done | Via GUI scripting |
+| Batch execution (20 slides/call) | done | |
+| Per-slide error handling | done | |
 | Set text alignment | no | Must be set in master slide |
 | Rename/delete master slides | no | Must be preset in template |
 
 ## Known issues
 
-1. **Two-column item order is counterintuitive**: Right column is `text item 2`, left is `text item 3` (or higher in body+col layouts). Baked into the master slide. The CLI hides this behind `left`/`right` content keys.
+1. **Duplicate text items on every slide**: Master-inherited duplicates appear. When targeting by index, know that items after the content items may be duplicates or hidden 0x0 placeholders.
 
-2. **`defaultBodyItem` broken for custom masters**: For all two-column masters, `defaultBodyItem` points to a hidden 0x0 placeholder. Must use `text item N` by index instead. Only works for `Title` and `Header-Body`.
+2. **`defaultBodyItem` broken on some masters**: For many custom masters, `defaultBodyItem` points to a hidden 0x0 placeholder. Use `textItem:N` instead.
 
-3. **Duplicate text items on every slide**: Master-inherited duplicates appear after the content items. The CLI targets only the first N content items per layout.
+3. **Placeholder labels not exposed**: The instructional text in Keynote's Edit Slide Layout view is not accessible via AppleScript. Items are identified by index only.
 
-4. **Placeholder labels not exposed via AppleScript**: The instructional text in Keynote's Edit Slide Layout view is not accessible. Text items are identified by index only.
+4. **Text formatting inherited from master**: The template's masters define formatting. Setting `object text` inherits formatting automatically.
 
-5. **Formatting inherited from master**: Setting font/size/color works, but the template's masters already define correct formatting. The CLI only needs to set `object text` — formatting is inherited automatically.
+## Future direction
+
+Standalone mutation commands (e.g. `keynote-cli set-text --document front ...` or `keynote-cli set-text --file out.key ...`) could allow individual operations outside a script. This would require specifying the document source — either an already-open window (`--document front`) or a file to open (`--file path.key`). Currently, mutation commands only work inside script files run via `keynote-cli run`.
