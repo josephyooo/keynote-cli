@@ -316,6 +316,38 @@ Slide-creation commands (`add-slide`, `set-text`, `add-image`, etc.) are batched
 }
 ```
 
+## inspect-masters output format
+
+`keynote-cli inspect-masters file.key`
+
+Returns a JSON array with one entry per master slide. Each entry lists the visible text items with their recommended `target` notation for use in `set-text` commands.
+
+```json
+[
+  {
+    "master": "Title & Bullets",
+    "defaultTitleItem": {"position": [95, 85], "size": [1730, 113]},
+    "defaultBodyItem": {"position": [95, 335], "size": [1730, 650]},
+    "textItems": [
+      {"index": 1, "position": [95, 85], "size": [1730, 113], "hidden": false, "target": "defaultTitleItem"},
+      {"index": 2, "position": [95, 187], "size": [1730, 74], "hidden": false, "target": "textItem:2"},
+      {"index": 3, "position": [95, 335], "size": [1730, 650], "hidden": false, "target": "defaultBodyItem"}
+    ]
+  },
+  {
+    "master": "Big Fact",
+    "defaultTitleItem": null,
+    "defaultBodyItem": {"position": [95, 85], "size": [1730, 570]},
+    "textItems": [
+      {"index": 1, "position": [95, 85], "size": [1730, 570], "hidden": false, "target": "defaultBodyItem"},
+      {"index": 2, "position": [95, 651], "size": [1730, 74], "hidden": false, "target": "textItem:2"}
+    ]
+  }
+]
+```
+
+Hidden (0×0) text items and placeholder defaults are filtered out. When `defaultTitleItem` or `defaultBodyItem` is `null`, the master has no usable placeholder for that role — use `textItem:N` targets instead.
+
 ## Export formats
 
 `keynote-cli export file.key --format FORMAT [--output PATH]`

@@ -1471,6 +1471,164 @@ def inspect_file(file_path: Path) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Inspect masters
+# ---------------------------------------------------------------------------
+
+
+def build_inspect_masters_applescript(file_path: Path) -> str:
+    sep = FIELD_SEP
+    return f"""\
+with timeout of {APPLESCRIPT_LONG_TIMEOUT_SECONDS} seconds
+tell application "Keynote"
+    set theDoc to open {applescript_posix_file(file_path)}
+    try
+        tell theDoc
+            set originalCount to count of slides
+            set masterNames to {{}}
+            repeat with ms in master slides
+                set end of masterNames to name of ms
+            end repeat
+
+            set resultLines to {{}}
+            repeat with masterIdx from 1 to count of masterNames
+                set masterName to item masterIdx of masterNames
+                set newSlide to make new slide with properties {{base slide: master slide masterName}}
+                set end of resultLines to ("MASTER{sep}" & masterName)
+
+                -- defaultTitleItem
+                try
+                    set dti to default title item of newSlide
+                    set dtiPos to position of dti
+                    set dtiW to width of dti
+                    set dtiH to height of dti
+                    set end of resultLines to ("DTI{sep}" & (item 1 of dtiPos) & "{sep}" & (item 2 of dtiPos) & "{sep}" & dtiW & "{sep}" & dtiH)
+                on error
+                    set end of resultLines to ("DTI{sep}NONE")
+                end try
+
+                -- defaultBodyItem
+                try
+                    set dbi to default body item of newSlide
+                    set dbiPos to position of dbi
+                    set dbiW to width of dbi
+                    set dbiH to height of dbi
+                    set end of resultLines to ("DBI{sep}" & (item 1 of dbiPos) & "{sep}" & (item 2 of dbiPos) & "{sep}" & dbiW & "{sep}" & dbiH)
+                on error
+                    set end of resultLines to ("DBI{sep}NONE")
+                end try
+
+                -- all text items
+                try
+                    set tiCount to count of text items of newSlide
+                    repeat with tiIdx from 1 to tiCount
+                        set ti to text item tiIdx of newSlide
+                        set tiPos to position of ti
+                        set tiW to width of ti
+                        set tiH to height of ti
+                        set end of resultLines to ("TI{sep}" & tiIdx & "{sep}" & (item 1 of tiPos) & "{sep}" & (item 2 of tiPos) & "{sep}" & tiW & "{sep}" & tiH)
+                    end repeat
+                end try
+
+                delete slide (originalCount + 1)
+            end repeat
+        end tell
+        close theDoc saving no
+        set AppleScript's text item delimiters to linefeed
+        return resultLines as text
+    on error errMsg number errNum
+        try
+            close theDoc saving no
+        end try
+        error errMsg number errNum
+    end try
+end tell
+end timeout
+"""
+
+
+def inspect_masters_file(file_path: Path) -> list[dict[str, Any]]:
+    script = build_inspect_masters_applescript(file_path)
+    raw = run_osascript(script)
+
+    masters: list[dict[str, Any]] = []
+    current: dict[str, Any] | None = None
+
+    for line in raw.splitlines():
+        parts = line.split(FIELD_SEP)
+        kind = parts[0]
+        if kind == "MASTER":
+            current = {"master": parts[1], "defaultTitleItem": None, "defaultBodyItem": None, "textItems": []}
+            masters.append(current)
+        elif kind == "DTI" and current is not None:
+            if parts[1] != "NONE":
+                sz = [float(parts[3]), float(parts[4])]
+                if sz[0] > 0 and sz[1] > 0:
+                    current["defaultTitleItem"] = {
+                        "position": [float(parts[1]), float(parts[2])],
+                        "size": sz,
+                    }
+        elif kind == "DBI" and current is not None:
+            if parts[1] != "NONE":
+                sz = [float(parts[3]), float(parts[4])]
+                if sz[0] > 0 and sz[1] > 0:
+                    current["defaultBodyItem"] = {
+                        "position": [float(parts[1]), float(parts[2])],
+                        "size": sz,
+                    }
+        elif kind == "TI" and current is not None:
+            current["textItems"].append({
+                "index": int(parts[1]),
+                "position": [float(parts[2]), float(parts[3])],
+                "size": [float(parts[4]), float(parts[5])],
+            })
+
+    # Annotate text items with target notation
+    for master in masters:
+        dti = master["defaultTitleItem"]
+        dbi = master["defaultBodyItem"]
+        visible_items: list[dict[str, Any]] = []
+        for ti in master["textItems"]:
+            w, h = ti["size"]
+            if w == 0 and h == 0:
+                ti["target"] = None
+                ti["hidden"] = True
+                continue
+            ti["hidden"] = False
+            # Match against defaultTitleItem/defaultBodyItem by position
+            if dti and ti["position"] == dti["position"] and ti["size"] == dti["size"]:
+                ti["target"] = "defaultTitleItem"
+            elif dbi and ti["position"] == dbi["position"] and ti["size"] == dbi["size"]:
+                ti["target"] = "defaultBodyItem"
+            else:
+                ti["target"] = f"textItem:{ti['index']}"
+            visible_items.append(ti)
+        # Filter out duplicates (same position+size)
+        seen: set[tuple[float, float, float, float]] = set()
+        deduped: list[dict[str, Any]] = []
+        for ti in visible_items:
+            key = (ti["position"][0], ti["position"][1], ti["size"][0], ti["size"][1])
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(ti)
+        master["textItems"] = deduped
+
+    return masters
+
+
+def command_inspect_masters(args: argparse.Namespace) -> int:
+    file_path = Path(args.file).resolve()
+    ensure_existing_file(file_path, "Input file", ".key")
+    ensure_runtime_available()
+    try:
+        result = inspect_masters_file(file_path)
+    except Exception as exc:
+        fail(f"Inspect masters failed for {file_path}: {exc}")
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # Export
 # ---------------------------------------------------------------------------
 
@@ -2122,6 +2280,10 @@ def build_parser() -> argparse.ArgumentParser:
     inspect_parser = subparsers.add_parser("inspect", help="Inspect a .key file and print JSON")
     inspect_parser.add_argument("file", help="Path to .key file")
     inspect_parser.set_defaults(func=command_inspect)
+
+    inspect_masters_parser = subparsers.add_parser("inspect-masters", help="Inspect master slide text item layout")
+    inspect_masters_parser.add_argument("file", help="Path to .key file")
+    inspect_masters_parser.set_defaults(func=command_inspect_masters)
 
     export_parser = subparsers.add_parser("export", help="Export a .key file")
     export_parser.add_argument("file", help="Path to .key file")

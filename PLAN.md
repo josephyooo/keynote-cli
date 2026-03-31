@@ -34,6 +34,7 @@
 | Set master (base slide) | done | Scriptable way to change backgrounds |
 | Get/set presenter notes | done | |
 | Inspect slide structure | done | JSON output |
+| Inspect master slide layout | done | `inspect-masters` — text items with target notation |
 
 ### Text
 

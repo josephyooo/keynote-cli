@@ -61,6 +61,7 @@ keynote-cli run script.txt --force          # Overwrite existing output
 keynote-cli run script.txt --print-applescript  # Print generated AppleScript
 
 keynote-cli inspect file.key               # Dump slide structure as JSON
+keynote-cli inspect-masters file.key       # Dump master slide text item layout
 
 keynote-cli export file.key                # Export to PDF (default)
 keynote-cli export file.key --format png   # Export as PNG slide images
