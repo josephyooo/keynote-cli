@@ -649,6 +649,130 @@ def parse_script_line(line: str, line_num: int, base_dir: Path) -> dict[str, Any
             fail(f"Line {line_num}: set-style must include at least one style flag")
         return style
 
+    if cmd == "add-table":
+        parser = argparse.ArgumentParser(prog="add-table", exit_on_error=False)
+        parser.add_argument("--slide", type=int, required=True)
+        parser.add_argument("--rows", type=int, required=True)
+        parser.add_argument("--cols", type=int, required=True)
+        parser.add_argument("--position")
+        parser.add_argument("--size")
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: add-table requires --slide N --rows R --cols C [--position X,Y] [--size W,H]")
+        if args.slide < 1:
+            fail(f"Line {line_num}: slide number must be >= 1")
+        if args.rows < 1 or args.cols < 1:
+            fail(f"Line {line_num}: rows and cols must be >= 1")
+        result: dict[str, Any] = {"op": "add-table", "slide": args.slide, "rows": args.rows, "cols": args.cols}
+        if args.position:
+            result["position"] = parse_pair(args.position)
+        if args.size:
+            s = parse_pair(args.size)
+            if s[0] <= 0 or s[1] <= 0:
+                fail(f"Line {line_num}: table size values must both be > 0")
+            result["size"] = s
+        return result
+
+    if cmd == "set-cell":
+        parser = argparse.ArgumentParser(prog="set-cell", exit_on_error=False)
+        parser.add_argument("--slide", type=int, required=True)
+        parser.add_argument("--table", type=int, default=1)
+        parser.add_argument("--row", type=int, required=True)
+        parser.add_argument("--col", type=int, required=True)
+        parser.add_argument("value")
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: set-cell requires --slide N --row R --col C VALUE [--table I]")
+        if args.slide < 1:
+            fail(f"Line {line_num}: slide number must be >= 1")
+        if args.table < 1:
+            fail(f"Line {line_num}: table index must be >= 1")
+        if args.row < 1 or args.col < 1:
+            fail(f"Line {line_num}: row and col must be >= 1")
+        return {"op": "set-cell", "slide": args.slide, "table": args.table, "row": args.row, "col": args.col, "value": _unescape_script_text(args.value)}
+
+    if cmd == "add-row":
+        parser = argparse.ArgumentParser(prog="add-row", exit_on_error=False)
+        parser.add_argument("--slide", type=int, required=True)
+        parser.add_argument("--table", type=int, default=1)
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: add-row requires --slide N [--table I]")
+        if args.slide < 1:
+            fail(f"Line {line_num}: slide number must be >= 1")
+        if args.table < 1:
+            fail(f"Line {line_num}: table index must be >= 1")
+        return {"op": "add-row", "slide": args.slide, "table": args.table}
+
+    if cmd == "add-col":
+        parser = argparse.ArgumentParser(prog="add-col", exit_on_error=False)
+        parser.add_argument("--slide", type=int, required=True)
+        parser.add_argument("--table", type=int, default=1)
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: add-col requires --slide N [--table I]")
+        if args.slide < 1:
+            fail(f"Line {line_num}: slide number must be >= 1")
+        if args.table < 1:
+            fail(f"Line {line_num}: table index must be >= 1")
+        return {"op": "add-col", "slide": args.slide, "table": args.table}
+
+    if cmd == "delete-row":
+        parser = argparse.ArgumentParser(prog="delete-row", exit_on_error=False)
+        parser.add_argument("--slide", type=int, required=True)
+        parser.add_argument("--table", type=int, default=1)
+        parser.add_argument("--row", type=int, required=True)
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: delete-row requires --slide N --row R [--table I]")
+        if args.slide < 1:
+            fail(f"Line {line_num}: slide number must be >= 1")
+        if args.table < 1:
+            fail(f"Line {line_num}: table index must be >= 1")
+        if args.row < 1:
+            fail(f"Line {line_num}: row must be >= 1")
+        return {"op": "delete-row", "slide": args.slide, "table": args.table, "row": args.row}
+
+    if cmd == "delete-col":
+        parser = argparse.ArgumentParser(prog="delete-col", exit_on_error=False)
+        parser.add_argument("--slide", type=int, required=True)
+        parser.add_argument("--table", type=int, default=1)
+        parser.add_argument("--col", type=int, required=True)
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: delete-col requires --slide N --col C [--table I]")
+        if args.slide < 1:
+            fail(f"Line {line_num}: slide number must be >= 1")
+        if args.table < 1:
+            fail(f"Line {line_num}: table index must be >= 1")
+        if args.col < 1:
+            fail(f"Line {line_num}: col must be >= 1")
+        return {"op": "delete-col", "slide": args.slide, "table": args.table, "col": args.col}
+
+    if cmd == "set-transition":
+        parser = argparse.ArgumentParser(prog="set-transition", exit_on_error=False)
+        parser.add_argument("--slide", type=int, required=True)
+        parser.add_argument("--style", required=True)
+        parser.add_argument("--duration", type=float)
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: set-transition requires --slide N --style TYPE [--duration S]")
+        if args.slide < 1:
+            fail(f"Line {line_num}: slide number must be >= 1")
+        if args.duration is not None and args.duration < 0:
+            fail(f"Line {line_num}: duration must be >= 0")
+        result2: dict[str, Any] = {"op": "set-transition", "slide": args.slide, "style": args.style}
+        if args.duration is not None:
+            result2["duration"] = args.duration
+        return result2
+
     if cmd == "delete-slides":
         if len(tokens) != 2:
             fail(f"Line {line_num}: delete-slides requires a range (e.g. 1-7 or 5)")
@@ -698,7 +822,8 @@ def parse_script(script_path: Path) -> list[dict[str, Any]]:
 DOC_OPS = frozenset({
     "duplicate-slide", "move-slide", "replace-text", "add-shape", "set-master", "set-theme",
     "skip-slide", "unskip-slide", "delete-shape", "delete-image", "add-line",
-    "duplicate-shape", "set-style", "delete-slides",
+    "duplicate-shape", "set-style", "add-table", "set-cell", "add-row", "add-col",
+    "delete-row", "delete-col", "set-transition", "delete-slides",
 })
 
 
@@ -984,6 +1109,58 @@ def _build_doc_op_applescript(op: dict[str, Any]) -> list[str]:
             lines.append(f"        set italic to {'true' if op['italic'] else 'false'}")
         if "underline" in op:
             lines.append(f"        set underlined to {'true' if op['underline'] else 'false'}")
+        lines.append(f"      end tell")
+
+    elif kind == "add-table":
+        slide_num = op["slide"]
+        rows = op["rows"]
+        cols = op["cols"]
+        lines.append(f"      tell slide {slide_num}")
+        lines.append(f"        set newTable to make new table with properties {{row count:{rows}, column count:{cols}}}")
+        if "position" in op:
+            pos = op["position"]
+            lines.append(f"        set position of newTable to {{{numeric_literal(pos[0])}, {numeric_literal(pos[1])}}}")
+        if "size" in op:
+            sz = op["size"]
+            lines.append(f"        set width of newTable to {numeric_literal(sz[0])}")
+            lines.append(f"        set height of newTable to {numeric_literal(sz[1])}")
+        lines.append(f"      end tell")
+
+    elif kind == "set-cell":
+        slide_num = op["slide"]
+        table_idx = op["table"]
+        row = op["row"]
+        col = op["col"]
+        value = op["value"]
+        lines.append(f"      set value of cell {col} of row {row} of table {table_idx} of slide {slide_num} to {applescript_string(value)}")
+
+    elif kind == "add-row":
+        lines.append(f"      tell table {op['table']} of slide {op['slide']}")
+        lines.append(f"        add row above row (row count)")
+        lines.append(f"      end tell")
+
+    elif kind == "add-col":
+        lines.append(f"      tell table {op['table']} of slide {op['slide']}")
+        lines.append(f"        add column above column (column count)")
+        lines.append(f"      end tell")
+
+    elif kind == "delete-row":
+        lines.append(f"      tell table {op['table']} of slide {op['slide']}")
+        lines.append(f"        delete row {op['row']}")
+        lines.append(f"      end tell")
+
+    elif kind == "delete-col":
+        lines.append(f"      tell table {op['table']} of slide {op['slide']}")
+        lines.append(f"        delete column {op['col']}")
+        lines.append(f"      end tell")
+
+    elif kind == "set-transition":
+        slide_num = op["slide"]
+        style = op["style"]
+        lines.append(f"      tell transition settings of slide {slide_num}")
+        lines.append(f"        set transition effect to {style}")
+        if "duration" in op:
+            lines.append(f"        set transition duration to {numeric_literal(op['duration'])}")
         lines.append(f"      end tell")
 
     elif kind == "delete-slides":
@@ -1290,6 +1467,7 @@ EXPORT_FORMAT_MAP = {
     "jpeg": ("slide images", ".jpeg"),
     "pptx": ("Microsoft PowerPoint", ".pptx"),
     "html": ("HTML", ".html"),
+    "movie": ("QuickTime movie", ".m4v"),
 }
 
 
@@ -1584,6 +1762,41 @@ def command_insert_equations(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Present
+# ---------------------------------------------------------------------------
+
+def build_present_applescript(file_path: Path, from_slide: int | None = None) -> str:
+    lines = [
+        f"with timeout of {APPLESCRIPT_LONG_TIMEOUT_SECONDS} seconds",
+        "tell application \"Keynote\"",
+        "  activate",
+        f"  set theDoc to open {applescript_posix_file(file_path)}",
+    ]
+    if from_slide is not None:
+        lines.append(f"  tell theDoc to set current slide to slide {from_slide}")
+    lines.extend([
+        "  start theDoc",
+        "end tell",
+        "end timeout",
+    ])
+    return "\n".join(lines)
+
+
+def command_present(args: argparse.Namespace) -> int:
+    file_path = Path(args.file).resolve()
+    ensure_existing_file(file_path, "Input file", ".key")
+    ensure_runtime_available()
+    from_slide = args.from_slide
+    if from_slide is not None and from_slide < 1:
+        fail("--from must be >= 1")
+    try:
+        run_osascript(build_present_applescript(file_path, from_slide))
+    except Exception as exc:
+        fail(f"Present failed for {file_path}: {exc}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # Argument parser
 # ---------------------------------------------------------------------------
 
@@ -1648,6 +1861,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print generated AppleScript for each equation instead of running it",
     )
     eq_parser.set_defaults(func=command_insert_equations)
+
+    present_parser = subparsers.add_parser("present", help="Start a slideshow")
+    present_parser.add_argument("file", help="Path to .key file")
+    present_parser.add_argument("--from", type=int, dest="from_slide", help="Start from slide N (1-based)")
+    present_parser.set_defaults(func=command_present)
 
     return parser
 

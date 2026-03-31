@@ -15,9 +15,10 @@
 |-----------|--------|-------|
 | Open/save/close | done | |
 | Export to PDF/PNG/JPEG/PPTX/HTML | done | `--format` flag on `export` command |
-| Export to movie | not yet | Keynote supports `export ... as QuickTime movie` |
+| Export to movie | done | `--format movie` |
 | Set document theme | done | `set-theme` script command |
-| Presentation playback (start/stop/advance) | not yet | `start`, `stop`, `show next/previous` |
+| Start presentation | done | `present` standalone command with `--from N` |
+| Playback control (stop/advance/rewind) | not yet | `stop`, `show next/previous` |
 | Get slide count | done | via `inspect` |
 | Get/set current slide | not yet | |
 
@@ -72,10 +73,12 @@
 
 | Operation | Status | Notes |
 |-----------|--------|-------|
-| Add table | not yet | `make new table` with row/column count |
-| Get/set cell value | not yet | By row/column index |
+| Add table | done | `add-table` with row/column count, optional position/size |
+| Set cell value | done | `set-cell` by row/column index |
+| Get cell value | not yet | |
 | Get/set cell formula | not yet | |
-| Add/delete rows/columns | not yet | |
+| Add row/column | done | `add-row`, `add-col` |
+| Delete row/column | done | `delete-row`, `delete-col` |
 | Merge/split cells | not yet | |
 
 ### Equations
@@ -95,7 +98,8 @@
 
 | Operation | Status | Notes |
 |-----------|--------|-------|
-| Get/set slide transition | not yet | Transition style and duration are partially scriptable |
+| Set slide transition | done | `set-transition` with style and optional duration |
+| Get slide transition | not yet | |
 | Get build order | not yet | Read-heavy; write is mostly GUI-only |
 
 ## Automation mechanisms
@@ -107,6 +111,7 @@ All script commands use standard `tell application "Keynote"` AppleScript, which
 | `run` (all script commands) | Keynote scripting | No (opens automatically) | No | No |
 | `inspect` | Keynote scripting | No (opens automatically) | No | No |
 | `export` | Keynote scripting | No (opens automatically) | No | No |
+| `present` | Keynote scripting | No (opens automatically) | Yes (`activate` is called) | No |
 | `insert-equations` | Keynote + System Events | Yes (document must be open) | Yes (`activate` is called) | Yes |
 
 `insert-equations` drives the GUI: it focuses Keynote, uses Cmd+F to find placeholder text, clicks Insert > Equation, types LaTeX into the editor, and waits for the renderer. This requires the calling process (Terminal, etc.) to be listed under System Settings > Privacy & Security > Accessibility.

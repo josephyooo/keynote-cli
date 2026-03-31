@@ -19,6 +19,9 @@ keynote-cli inspect file.key                             # Dump slide structure 
 keynote-cli export file.key --output file.pdf            # Export to PDF (default)
 keynote-cli export file.key --format png --output slides/# Export as PNG images
 keynote-cli export file.key --format pptx                # Export as PowerPoint
+keynote-cli export file.key --format movie               # Export as movie
+keynote-cli present file.key                             # Start slideshow
+keynote-cli present file.key --from 5                    # Start from slide 5
 keynote-cli insert-equations equations.json              # Insert LaTeX equations via GUI
 ```
 
@@ -70,6 +73,13 @@ Lines starting with `#` are comments. Blank lines are ignored.
 | `delete-shape --slide N --index I` | Delete a shape |
 | `delete-image --slide N --index I` | Delete an image |
 | `set-master --slide N --master NAME` | Change a slide's master (base slide) |
+| `add-table --slide N --rows R --cols C [--position X,Y] [--size W,H]` | Add a table |
+| `set-cell --slide N --row R --col C VALUE [--table I]` | Set a table cell value |
+| `add-row --slide N [--table I]` | Add a row to a table |
+| `add-col --slide N [--table I]` | Add a column to a table |
+| `delete-row --slide N --row R [--table I]` | Delete a table row |
+| `delete-col --slide N --col C [--table I]` | Delete a table column |
+| `set-transition --slide N --style TYPE [--duration S]` | Set slide transition |
 | `set-theme --theme NAME` | Apply a theme to the entire document |
 | `delete-slides RANGE` | Delete slides (e.g. `1-7` or `5`) |
 | `save` | Save and close the document |

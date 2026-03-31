@@ -191,6 +191,69 @@ set-master --slide N --master NAME
 - Changes the master (base slide) of slide N.
 - This is the scriptable way to change slide backgrounds — use a master with the desired background.
 
+### add-table
+
+```
+add-table --slide N --rows R --cols C [--position X,Y] [--size W,H]
+```
+
+- Creates a table with R rows and C columns on slide N.
+- `--position` and `--size` are optional.
+- `--table` index defaults to 1 for subsequent cell operations on slides with one table.
+
+### set-cell
+
+```
+set-cell --slide N --row R --col C VALUE [--table I]
+```
+
+- Sets the value of cell at row R, column C in table I on slide N.
+- `--table` defaults to 1.
+- Row and column are 1-based.
+
+### add-row
+
+```
+add-row --slide N [--table I]
+```
+
+- Appends a row to table I on slide N.
+
+### add-col
+
+```
+add-col --slide N [--table I]
+```
+
+- Appends a column to table I on slide N.
+
+### delete-row
+
+```
+delete-row --slide N --row R [--table I]
+```
+
+- Deletes row R from table I on slide N.
+
+### delete-col
+
+```
+delete-col --slide N --col C [--table I]
+```
+
+- Deletes column C from table I on slide N.
+
+### set-transition
+
+```
+set-transition --slide N --style TYPE [--duration S]
+```
+
+- Sets the transition effect on slide N.
+- `--style`: the transition name as Keynote recognizes it (e.g. `dissolve`, `"magic move"`, `push`, `none`).
+- `--duration`: transition duration in seconds.
+- Use `--style none` to remove a transition.
+
 ### set-theme
 
 ```
@@ -264,6 +327,17 @@ Slide-creation commands (`add-slide`, `set-text`, `add-image`, etc.) are batched
 | `jpeg` | slide images (JPEG) | `.jpeg` | Individual slide images |
 | `pptx` | Microsoft PowerPoint | `.pptx` | |
 | `html` | HTML | `.html` | |
+| `movie` | QuickTime movie | `.m4v` | |
+
+## present command
+
+```bash
+keynote-cli present file.key [--from N]
+```
+
+- Opens the file in Keynote, activates it, and starts the slideshow.
+- `--from N`: start from slide N (1-based). If omitted, starts from the beginning.
+- This is a standalone command (not a script command).
 
 ## insert-equations input format
 
