@@ -22,7 +22,9 @@ keynote-cli export file.key --format pptx                # Export as PowerPoint
 keynote-cli export file.key --format movie               # Export as movie
 keynote-cli present file.key                             # Start slideshow
 keynote-cli present file.key --from 5                    # Start from slide 5
-keynote-cli insert-equations equations.json              # Insert LaTeX equations via GUI
+keynote-cli insert-links links.json                      # Add URL hyperlinks (GUI scripting)
+keynote-cli insert-slide-links nav.json                  # Add slide navigation links (GUI scripting)
+keynote-cli insert-equations equations.json              # Insert LaTeX equations (GUI scripting)
 ```
 
 ## Script format

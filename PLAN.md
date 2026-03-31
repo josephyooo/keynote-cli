@@ -113,16 +113,16 @@
 
 ### Hyperlinks
 
-Keynote's scripting dictionary has no native hyperlink class. All link operations require GUI scripting.
+Keynote's scripting dictionary has no native hyperlink class. All link operations require GUI scripting via System Events.
 
 | Operation | Status | Notes |
 |-----------|--------|-------|
-| Add URL hyperlink to text | no | GUI-only: select text, Cmd+K, type URL, Return |
-| Add slide navigation link to object | no | GUI-only: right-click > Add Link > Slide (locale-dependent menu item) |
-| Read existing URL from text | no | `get URL of word N` exists but is inconsistent across Keynote versions |
-| Remove a link | no | GUI-only: select text, Cmd+K, clear URL |
+| Add URL hyperlink to text | done | `insert-links` — finds text via Cmd+F, links via Cmd+K |
+| Add slide navigation link to shape | done | `insert-slide-links` — selects shape, Cmd+K, popover |
+| Read existing URL from text | not yet | `get URL of word N` exists but is inconsistent across versions |
+| Remove a link | not yet | Would need GUI scripting: select text, Cmd+K, clear URL |
 
-If implemented, the approach would mirror `insert-equations`: activate Keynote, drive the UI via System Events, require Accessibility permissions. Slide navigation links are especially fragile because they rely on context menu item names that change with locale. Best done as a batch pass at the end of a build, not interleaved with other operations.
+Both link commands are standalone (not script commands), run as a batch pass, and require Accessibility permissions + Keynote as frontmost window. Slide navigation links use Cmd+K with a popover rather than context menus, but are still locale-dependent.
 
 ### Transitions & builds
 
@@ -142,6 +142,8 @@ All script commands use standard `tell application "Keynote"` AppleScript, which
 | `inspect` | Keynote scripting | No (opens automatically) | No | No |
 | `export` | Keynote scripting | No (opens automatically) | No | No |
 | `present` | Keynote scripting | No (opens automatically) | Yes (`activate` is called) | No |
+| `insert-links` | Keynote + System Events | Yes (document must be open) | Yes (`activate` is called) | Yes |
+| `insert-slide-links` | Keynote + System Events | Yes (document must be open) | Yes (`activate` is called) | Yes |
 | `insert-equations` | Keynote + System Events | Yes (document must be open) | Yes (`activate` is called) | Yes |
 
 `insert-equations` drives the GUI: it focuses Keynote, uses Cmd+F to find placeholder text, clicks Insert > Equation, types LaTeX into the editor, and waits for the renderer. This requires the calling process (Terminal, etc.) to be listed under System Settings > Privacy & Security > Accessibility.

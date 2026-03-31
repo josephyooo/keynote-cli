@@ -339,6 +339,52 @@ keynote-cli present file.key [--from N]
 - `--from N`: start from slide N (1-based). If omitted, starts from the beginning.
 - This is a standalone command (not a script command).
 
+## insert-links input format
+
+`keynote-cli insert-links links.json [--dry-run] [--print-applescript]`
+
+Adds URL hyperlinks to text in an already-open Keynote deck. Uses GUI scripting (Cmd+K) — requires Accessibility permissions and Keynote as frontmost window.
+
+A JSON array of objects:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `slide` | int | yes | 1-based slide number |
+| `find` | string | yes | Text to find and select (linked via Cmd+F) |
+| `url` | string | yes | URL to link to |
+| `label` | string | no | Human-readable label for progress output |
+
+Example:
+```json
+[
+  {"slide": 3, "find": "click here", "url": "https://example.com"},
+  {"slide": 5, "find": "documentation", "url": "https://docs.example.com", "label": "docs link"}
+]
+```
+
+## insert-slide-links input format
+
+`keynote-cli insert-slide-links nav.json [--dry-run] [--print-applescript]`
+
+Adds slide navigation links to shapes in an already-open Keynote deck. Uses GUI scripting (Cmd+K + popover) — requires Accessibility permissions and Keynote as frontmost window. Locale-dependent (menu item names may differ in non-English Keynote).
+
+A JSON array of objects:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `slide` | int | yes | 1-based slide number containing the shape |
+| `shape` | int | yes | 1-based shape index on the slide |
+| `to_slide` | int | yes | Target slide number to navigate to |
+| `label` | string | no | Human-readable label for progress output |
+
+Example:
+```json
+[
+  {"slide": 1, "shape": 1, "to_slide": 5, "label": "nav to section 2"},
+  {"slide": 1, "shape": 2, "to_slide": 10}
+]
+```
+
 ## insert-equations input format
 
 A JSON array of objects:
