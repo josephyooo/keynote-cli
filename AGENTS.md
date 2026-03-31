@@ -81,6 +81,65 @@ delete-slides RANGE
 - `RANGE` is `START-END` (e.g. `1-7`) or a single number (e.g. `5`).
 - 1-based. Both start and end are inclusive.
 
+### duplicate-slide
+
+```
+duplicate-slide --slide N [--to M]
+```
+
+- `N` is 1-based slide index in the document (including template slides).
+- `--to M`: insert the duplicate after slide M. If omitted, it goes immediately after the source.
+
+### move-slide
+
+```
+move-slide --slide N --to M
+```
+
+- Moves slide N to position M (1-based).
+- `--to 1` moves to the beginning.
+
+### replace-text
+
+```
+replace-text --find "X" --replace "Y" [--slide N]
+```
+
+- Finds and replaces text across all text items on all slides.
+- `--slide N`: limit replacement to a single slide.
+- Uses AppleScript `text item delimiters` for substring replacement.
+
+### add-shape
+
+```
+add-shape --slide N --position X,Y --size W,H [--text T] [--rotation D] [--opacity O]
+```
+
+- Creates a new shape on the specified slide.
+- `--position` and `--size` are required. Size values must be > 0.
+- Fill color is not settable via AppleScript (shapes get Keynote's default styling).
+- `--text`: optional text inside the shape.
+- `--rotation`: degrees (0-359).
+- `--opacity`: 0-100.
+
+### set-master
+
+```
+set-master --slide N --master NAME
+```
+
+- Changes the master (base slide) of slide N.
+- This is the scriptable way to change slide backgrounds — use a master with the desired background.
+
+### delete-slides
+
+```
+delete-slides RANGE
+```
+
+- `RANGE` is `START-END` (e.g. `1-7`) or a single number (e.g. `5`).
+- 1-based. Both start and end are inclusive.
+
 ### save
 
 ```
@@ -88,6 +147,10 @@ save
 ```
 
 Saves and closes the document.
+
+## Execution order
+
+Slide-creation commands (`add-slide`, `set-text`, `add-image`, etc.) are batched and executed first. Document-level commands (`duplicate-slide`, `move-slide`, `replace-text`, `add-shape`, `set-master`, `delete-slides`) execute after all slide creation, in script order. This means document-level commands should reference slide indices as they will exist after all new slides have been added.
 
 ## Target notation
 

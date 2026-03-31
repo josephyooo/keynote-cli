@@ -443,6 +443,88 @@ def parse_script_line(line: str, line_num: int, base_dir: Path) -> dict[str, Any
             fail(f"Line {line_num}: override must include at least one property to change")
         return override
 
+    if cmd == "duplicate-slide":
+        parser = argparse.ArgumentParser(prog="duplicate-slide", exit_on_error=False)
+        parser.add_argument("--slide", type=int, required=True)
+        parser.add_argument("--to", type=int, dest="to_pos")
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: duplicate-slide requires --slide N [--to M]")
+        if args.slide < 1:
+            fail(f"Line {line_num}: slide number must be >= 1")
+        if args.to_pos is not None and args.to_pos < 0:
+            fail(f"Line {line_num}: --to must be >= 0")
+        return {"op": "duplicate-slide", "slide": args.slide, "to": args.to_pos}
+
+    if cmd == "move-slide":
+        parser = argparse.ArgumentParser(prog="move-slide", exit_on_error=False)
+        parser.add_argument("--slide", type=int, required=True)
+        parser.add_argument("--to", type=int, required=True, dest="to_pos")
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: move-slide requires --slide N --to M")
+        if args.slide < 1:
+            fail(f"Line {line_num}: slide number must be >= 1")
+        if args.to_pos < 1:
+            fail(f"Line {line_num}: --to must be >= 1")
+        return {"op": "move-slide", "slide": args.slide, "to": args.to_pos}
+
+    if cmd == "replace-text":
+        parser = argparse.ArgumentParser(prog="replace-text", exit_on_error=False)
+        parser.add_argument("--find", required=True)
+        parser.add_argument("--replace", required=True, dest="replace_with")
+        parser.add_argument("--slide", type=int)
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: replace-text requires --find TEXT --replace TEXT [--slide N]")
+        if args.slide is not None and args.slide < 1:
+            fail(f"Line {line_num}: slide number must be >= 1")
+        return {"op": "replace-text", "find": args.find, "replace": args.replace_with, "slide": args.slide}
+
+    if cmd == "add-shape":
+        parser = argparse.ArgumentParser(prog="add-shape", exit_on_error=False)
+        parser.add_argument("--slide", type=int, required=True)
+        parser.add_argument("--position", required=True)
+        parser.add_argument("--size", required=True)
+        parser.add_argument("--text")
+        parser.add_argument("--rotation", type=float)
+        parser.add_argument("--opacity", type=float)
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: add-shape requires --slide N --position X,Y --size W,H")
+        if args.slide < 1:
+            fail(f"Line {line_num}: slide number must be >= 1")
+        position = parse_pair(args.position)
+        size = parse_pair(args.size)
+        if size[0] <= 0 or size[1] <= 0:
+            fail(f"Line {line_num}: shape size values must both be > 0")
+        if args.opacity is not None and (args.opacity < 0 or args.opacity > 100):
+            fail(f"Line {line_num}: opacity must be between 0 and 100")
+        result: dict[str, Any] = {"op": "add-shape", "slide": args.slide, "position": position, "size": size}
+        if args.text is not None:
+            result["text"] = _unescape_script_text(args.text)
+        if args.rotation is not None:
+            result["rotation"] = args.rotation
+        if args.opacity is not None:
+            result["opacity"] = args.opacity
+        return result
+
+    if cmd == "set-master":
+        parser = argparse.ArgumentParser(prog="set-master", exit_on_error=False)
+        parser.add_argument("--slide", type=int, required=True)
+        parser.add_argument("--master", required=True)
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: set-master requires --slide N --master NAME")
+        if args.slide < 1:
+            fail(f"Line {line_num}: slide number must be >= 1")
+        return {"op": "set-master", "slide": args.slide, "master": args.master}
+
     if cmd == "delete-slides":
         if len(tokens) != 2:
             fail(f"Line {line_num}: delete-slides requires a range (e.g. 1-7 or 5)")
@@ -489,20 +571,25 @@ def parse_script(script_path: Path) -> list[dict[str, Any]]:
 # Script to AppleScript compilation
 # ---------------------------------------------------------------------------
 
+DOC_OPS = frozenset({
+    "duplicate-slide", "move-slide", "replace-text", "add-shape", "set-master", "delete-slides",
+})
+
+
 def _group_operations_into_slides(operations: list[dict[str, Any]]) -> dict[str, Any]:
     """Group parsed operations into a structured build plan.
 
     Returns a dict with:
-      template, output, force, slides (list of slide dicts), delete_range, has_save
-    Each slide dict has: master, content, images, text_boxes, overrides, notes
+      template, output, force, slides (list of slide dicts), doc_ops, has_save
+    Each slide dict has: master, content, images, text_boxes, overrides, notes.
+    doc_ops are document-level operations executed after slide creation, in script order.
     """
     open_op = None
     slides: list[dict[str, Any]] = []
-    delete_range: tuple[int, int] | None = None
+    doc_ops: list[dict[str, Any]] = []
     has_save = False
-    # Track non-add-slide operations that reference slide numbers
+    # Track per-new-slide operations that reference slide numbers
     deferred_ops: list[dict[str, Any]] = []
-    slide_count = 0
 
     for op in operations:
         if op["op"] == "open":
@@ -510,7 +597,6 @@ def _group_operations_into_slides(operations: list[dict[str, Any]]) -> dict[str,
                 fail("Script contains multiple 'open' commands")
             open_op = op
         elif op["op"] == "add-slide":
-            slide_count += 1
             slides.append({
                 "master": op["master"],
                 "content": [],
@@ -521,21 +607,19 @@ def _group_operations_into_slides(operations: list[dict[str, Any]]) -> dict[str,
             })
         elif op["op"] in ("set-text", "set-notes", "add-image", "add-text-box", "override"):
             deferred_ops.append(op)
-        elif op["op"] == "delete-slides":
-            delete_range = (op["start"], op["end"])
+        elif op["op"] in DOC_OPS:
+            doc_ops.append(op)
         elif op["op"] == "save":
             has_save = True
 
     if open_op is None:
         fail("Script must contain an 'open' command")
-    if not slides:
-        fail("Script must contain at least one 'add-slide' command")
 
     # Resolve deferred operations to their slides
     for op in deferred_ops:
         slide_idx = op["slide"] - 1  # 1-based to 0-based
         if slide_idx < 0 or slide_idx >= len(slides):
-            fail(f"Slide {op['slide']} is out of range (have {len(slides)} slides)")
+            fail(f"Slide {op['slide']} is out of range (have {len(slides)} new slides)")
         slide = slides[slide_idx]
 
         if op["op"] == "set-text":
@@ -573,7 +657,7 @@ def _group_operations_into_slides(operations: list[dict[str, Any]]) -> dict[str,
         "output": open_op["output"],
         "force": open_op["force"],
         "slides": slides,
-        "delete_range": delete_range,
+        "doc_ops": doc_ops,
         "has_save": has_save,
     }
 
@@ -668,12 +752,106 @@ def build_slide_applescript(slide: dict[str, Any], slide_number: int) -> list[st
     return lines
 
 
+def _build_doc_op_applescript(op: dict[str, Any]) -> list[str]:
+    """Generate AppleScript lines for a document-level operation."""
+    lines: list[str] = []
+    kind = op["op"]
+
+    if kind == "duplicate-slide":
+        src = op["slide"]
+        to = op.get("to")
+        if to is not None:
+            lines.append(f"      duplicate slide {src} to after slide {to}")
+        else:
+            lines.append(f"      duplicate slide {src}")
+
+    elif kind == "move-slide":
+        src = op["slide"]
+        to = op["to"]
+        if to == 1:
+            lines.append(f"      move slide {src} to beginning")
+        else:
+            lines.append(f"      move slide {src} to after slide {to - 1}")
+
+    elif kind == "replace-text":
+        find_as = applescript_string(op["find"])
+        replace_as = applescript_string(op["replace"])
+        slide_num = op.get("slide")
+        if slide_num is not None:
+            lines.append(f"      tell slide {slide_num}")
+            lines.append(f"        repeat with ti in text items")
+            lines.append(f"          set t to object text of ti")
+            lines.append(f"          if t contains {find_as} then")
+            lines.append(f"            set object text of ti to my replaceText(t, {find_as}, {replace_as})")
+            lines.append(f"          end if")
+            lines.append(f"        end repeat")
+            lines.append(f"      end tell")
+        else:
+            lines.append(f"      repeat with s in slides")
+            lines.append(f"        repeat with ti in text items of s")
+            lines.append(f"          set t to object text of ti")
+            lines.append(f"          if t contains {find_as} then")
+            lines.append(f"            set object text of ti to my replaceText(t, {find_as}, {replace_as})")
+            lines.append(f"          end if")
+            lines.append(f"        end repeat")
+            lines.append(f"      end repeat")
+
+    elif kind == "add-shape":
+        slide_num = op["slide"]
+        pos = op["position"]
+        sz = op["size"]
+        lines.append(f"      tell slide {slide_num}")
+        lines.append(f"        set newShape to make new shape")
+        lines.append(f"        tell newShape")
+        lines.append(f"          set position to {{{numeric_literal(pos[0])}, {numeric_literal(pos[1])}}}")
+        lines.append(f"          set width to {numeric_literal(sz[0])}")
+        lines.append(f"          set height to {numeric_literal(sz[1])}")
+        if "text" in op:
+            lines.append(f"          set object text to {applescript_string(op['text'])}")
+        if "rotation" in op:
+            lines.append(f"          set rotation to {numeric_literal(op['rotation'])}")
+        if "opacity" in op:
+            lines.append(f"          set opacity to {numeric_literal(op['opacity'])}")
+        lines.append(f"        end tell")
+        lines.append(f"      end tell")
+
+    elif kind == "set-master":
+        slide_num = op["slide"]
+        master = op["master"]
+        lines.append(f"      set base slide of slide {slide_num} to master slide {applescript_string(master)}")
+
+    elif kind == "delete-slides":
+        start, end = op["start"], op["end"]
+        lines.append(f"      repeat with i from {end} to {start} by -1")
+        lines.append(f"        delete slide i")
+        lines.append(f"      end repeat")
+
+    return lines
+
+
+def _needs_replace_text_helper(doc_ops: list[dict[str, Any]]) -> bool:
+    return any(op["op"] == "replace-text" for op in doc_ops)
+
+
+REPLACE_TEXT_HELPER = """\
+
+on replaceText(theText, searchFor, replaceWith)
+    set oldDelim to AppleScript's text item delimiters
+    set AppleScript's text item delimiters to searchFor
+    set theItems to text items of theText
+    set AppleScript's text item delimiters to replaceWith
+    set theText to theItems as text
+    set AppleScript's text item delimiters to oldDelim
+    return theText
+end replaceText"""
+
+
 def build_build_applescript(
     output_path: Path,
     slides: list[dict[str, Any]],
     *,
     start_slide_number: int = 1,
-    delete_range: tuple[int, int] | None = None,
+    doc_ops: list[dict[str, Any]] | None = None,
 ) -> str:
     lines: list[str] = [
         f"with timeout of {APPLESCRIPT_LONG_TIMEOUT_SECONDS} seconds",
@@ -689,15 +867,11 @@ def build_build_applescript(
     for index, slide in enumerate(slides, start=start_slide_number):
         lines.extend(build_slide_applescript(slide, index))
 
-    if delete_range is not None:
-        start, end = delete_range
-        lines.extend(
-            [
-                f"      repeat with i from {end} to {start} by -1",
-                "        delete slide i",
-                "      end repeat",
-            ]
-        )
+    if doc_ops:
+        lines.append("")
+        lines.append("    -- Document-level operations")
+        for op in doc_ops:
+            lines.extend(_build_doc_op_applescript(op))
 
     lines.extend(
         [
@@ -714,6 +888,10 @@ def build_build_applescript(
             "end timeout",
         ]
     )
+
+    if doc_ops and _needs_replace_text_helper(doc_ops):
+        lines.append(REPLACE_TEXT_HELPER)
+
     return "\n".join(lines)
 
 
@@ -987,8 +1165,7 @@ def command_run(args: argparse.Namespace) -> int:
     output_path: Path = plan["output"]
 
     if args.print_applescript:
-        delete_range = plan["delete_range"]
-        script = build_build_applescript(output_path, plan["slides"], delete_range=delete_range)
+        script = build_build_applescript(output_path, plan["slides"], doc_ops=plan["doc_ops"])
         print(script)
         return 0
 
@@ -1012,12 +1189,12 @@ def command_run(args: argparse.Namespace) -> int:
         for batch_start in range(0, total_slides, KEYNOTE_BUILD_BATCH_SIZE):
             batch_slides = plan["slides"][batch_start: batch_start + KEYNOTE_BUILD_BATCH_SIZE]
             is_last_batch = batch_start + len(batch_slides) >= total_slides
-            delete_range = plan["delete_range"] if is_last_batch else None
+            batch_doc_ops = plan["doc_ops"] if is_last_batch else None
             script = build_build_applescript(
                 output_path,
                 batch_slides,
                 start_slide_number=batch_start + 1,
-                delete_range=delete_range,
+                doc_ops=batch_doc_ops,
             )
             run_osascript(script)
     except Exception as exc:

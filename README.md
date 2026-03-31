@@ -56,6 +56,11 @@ Lines starting with `#` are comments. Blank lines are ignored.
 | `add-image --slide N --file PATH --position X,Y [--size W,H]` | Insert image |
 | `add-text-box --slide N --text TEXT --position X,Y --size W,H [--font F] [--font-size S] [--color R,G,B]` | Insert free text box |
 | `override --slide N --target TARGET [--text T] [--position X,Y] [--size W,H] [--font F] [--font-size S] [--color R,G,B] [--opacity O] [--rotation R]` | Modify existing element |
+| `duplicate-slide --slide N [--to M]` | Duplicate a slide (optionally to after slide M) |
+| `move-slide --slide N --to M` | Move slide N to position M |
+| `replace-text --find "X" --replace "Y" [--slide N]` | Find/replace text across slides |
+| `add-shape --slide N --position X,Y --size W,H [--text T] [--rotation D] [--opacity O]` | Add a shape to a slide |
+| `set-master --slide N --master NAME` | Change a slide's master (base slide) |
 | `delete-slides RANGE` | Delete slides (e.g. `1-7` or `5`) |
 | `save` | Save and close the document |
 
