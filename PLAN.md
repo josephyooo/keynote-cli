@@ -7,47 +7,118 @@
 - **JXA rejected**: `masterSlides` is completely broken (`"Can't convert types"` on every access).
 - **Swift deferred**: No benefit at this stage.
 
-## Capability status
+## Capability matrix
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Open/save `.key` files | done | |
-| Create slide from any named master | done | |
+### Document
+
+| Operation | Status | Notes |
+|-----------|--------|-------|
+| Open/save/close | done | |
+| Export to PDF | done | |
+| Export to PNG/JPEG/PPTX/HTML/movie | not yet | Keynote supports these via `export ... as` |
+| Set document theme | not yet | `set document theme to theme "X"` |
+| Presentation playback (start/stop/advance) | not yet | `start`, `stop`, `show next/previous` |
+| Get slide count | done | via `inspect` |
+| Get/set current slide | not yet | |
+
+### Slides
+
+| Operation | Status | Notes |
+|-----------|--------|-------|
+| Add slide from master | done | |
+| Delete slides by range | done | |
+| Duplicate slide | done | Optionally place after a specific slide |
+| Move/reorder slides | done | |
+| Skip/unskip slide | not yet | Toggles slide visibility in presentation |
+| Set master (base slide) | done | Scriptable way to change backgrounds |
+| Get/set presenter notes | done | |
+| Inspect slide structure | done | JSON output |
+
+### Text
+
+| Operation | Status | Notes |
+|-----------|--------|-------|
 | Set text on any item | done | via `defaultTitleItem`, `defaultBodyItem`, `textItem:N` |
 | Set paragraph indent levels | done | via `--indents` |
-| Add free text items | done | Position, size, font, color |
+| Add free text boxes | done | Position, size, font, color |
 | Set font/size/color on text | done | Must use font variant names (e.g. `"Helvetica-Bold"`) |
-| Add images | done | With position/size |
-| Add shapes | done | Position, size, text, rotation, opacity; fill color not settable |
-| Override element properties | done | text, position, size, font, color, opacity, rotation |
-| Set presenter notes | done | |
-| Duplicate slides | done | Optionally place after a specific slide |
-| Move/reorder slides | done | |
 | Find/replace text | done | Across all slides or a single slide |
-| Change slide master | done | Scriptable way to change backgrounds |
-| Delete slides by range | done | |
-| Export to PDF | done | |
-| Inspect slide structure | done | JSON output |
-| Insert LaTeX equations | done | Via GUI scripting |
-| Batch execution (20 slides/call) | done | |
-| Per-slide error handling | done | |
+| Override element properties | done | text, position, size, font, color, opacity, rotation |
 | Set text alignment | no | Must be set in master slide |
+| Bold/italic/underline styling | not yet | Settable via `bold of object text`, etc. |
+
+### Shapes
+
+| Operation | Status | Notes |
+|-----------|--------|-------|
+| Add shape | done | Position, size, text, rotation, opacity |
+| Add line | not yet | `make new line with properties {start point:..., end point:...}` |
+| Set shape text/position/size/rotation/opacity | done | Via `add-shape` or `override` |
+| Duplicate shape | not yet | `duplicate shape N to slide M` — workaround for fill color |
+| Delete shape | not yet | |
 | Set shape fill color | no | `background fill type` is read-only in AppleScript |
-| Set slide background directly | no | Use `set-master` to switch to a master with the desired background |
-| Rename/delete master slides | no | Must be preset in template |
+| Set shape z-order | no | Requires GUI scripting |
+
+### Images
+
+| Operation | Status | Notes |
+|-----------|--------|-------|
+| Add image | done | From file path, with position/size |
+| Set position/size/opacity/rotation | done | Via `override` |
+| Delete image | not yet | |
+| Swap image source | no | `file` and `file name` are read-only — must delete and re-insert |
+
+### Tables
+
+| Operation | Status | Notes |
+|-----------|--------|-------|
+| Add table | not yet | `make new table` with row/column count |
+| Get/set cell value | not yet | By row/column index |
+| Get/set cell formula | not yet | |
+| Add/delete rows/columns | not yet | |
+| Merge/split cells | not yet | |
+
+### Equations
+
+| Operation | Status | Notes |
+|-----------|--------|-------|
+| Insert LaTeX equation | done | GUI scripting via System Events — requires Accessibility permissions |
+
+### Media
+
+| Operation | Status | Notes |
+|-----------|--------|-------|
+| Add movie/audio | not yet | `make new movie/audio clip` |
+| Set position/size/autoplay/loop | not yet | |
+
+### Transitions & builds
+
+| Operation | Status | Notes |
+|-----------|--------|-------|
+| Get/set slide transition | not yet | Transition style and duration are partially scriptable |
+| Get build order | not yet | Read-heavy; write is mostly GUI-only |
 
 ## Automation mechanisms
 
-All commands use standard `tell application "Keynote"` AppleScript, which works headlessly (Keynote can be in the background or not running — it launches automatically). The one exception is `insert-equations`, which uses GUI scripting via System Events.
+All script commands use standard `tell application "Keynote"` AppleScript, which works headlessly (Keynote can be in the background or not running — it launches automatically). The one exception is `insert-equations`, which uses GUI scripting via System Events.
 
 | Command | Mechanism | Keynote must be open? | Needs frontmost window? | Accessibility permissions? |
 |---------|-----------|----------------------|------------------------|---------------------------|
-| `run` (build) | Keynote scripting | No (opens automatically) | No | No |
+| `run` (all script commands) | Keynote scripting | No (opens automatically) | No | No |
 | `inspect` | Keynote scripting | No (opens automatically) | No | No |
 | `export` | Keynote scripting | No (opens automatically) | No | No |
 | `insert-equations` | Keynote + System Events | Yes (document must be open) | Yes (`activate` is called) | Yes |
 
 `insert-equations` drives the GUI: it focuses Keynote, uses Cmd+F to find placeholder text, clicks Insert > Equation, types LaTeX into the editor, and waits for the renderer. This requires the calling process (Terminal, etc.) to be listed under System Settings > Privacy & Security > Accessibility.
+
+### Operations requiring GUI scripting
+
+These cannot be done headlessly and need System Events + Accessibility permissions:
+- Equation insertion (implemented)
+- Setting shape/text fill color
+- Setting slide background to an arbitrary color
+- Build/animation write operations
+- Z-order changes (send to back/front)
 
 ## Known issues
 
@@ -58,6 +129,8 @@ All commands use standard `tell application "Keynote"` AppleScript, which works 
 3. **Placeholder labels not exposed**: The instructional text in Keynote's Edit Slide Layout view is not accessible via AppleScript. Items are identified by index only.
 
 4. **Text formatting inherited from master**: The template's masters define formatting. Setting `object text` inherits formatting automatically.
+
+5. **Image source is read-only**: `file` and `file name` on images are read-only. To change an image, delete it and re-insert.
 
 ## Future direction
 
