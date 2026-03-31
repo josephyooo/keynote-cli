@@ -21,10 +21,16 @@ from keynote_cli.export import command_export, command_present
 from keynote_cli.gui import command_insert_equations, command_insert_links, command_insert_slide_links
 
 
-def validate_template_masters(template_path: Path, slides: list[dict[str, Any]]) -> dict[str, Any]:
+def validate_template_masters(
+    template_path: Path,
+    slides: list[dict[str, Any]],
+    doc_ops: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     info = inspect_file(template_path)
     available = set(info.get("masters", []))
     required = {slide["master"] for slide in slides}
+    if doc_ops:
+        required |= {op["master"] for op in doc_ops if op["op"] == "set-master"}
     missing = sorted(required - available)
     if missing:
         fail(
@@ -52,7 +58,7 @@ def command_run(args: argparse.Namespace) -> int:
     ensure_runtime_available()
 
     if args.check_template:
-        validate_template_masters(plan["template"], plan["slides"])
+        validate_template_masters(plan["template"], plan["slides"], plan["doc_ops"])
 
     if output_path.exists():
         if plan["force"] or args.force:
@@ -66,17 +72,21 @@ def command_run(args: argparse.Namespace) -> int:
     removed_partial_output = False
     try:
         total_slides = len(plan["slides"])
-        for batch_start in range(0, total_slides, KEYNOTE_BUILD_BATCH_SIZE):
-            batch_slides = plan["slides"][batch_start: batch_start + KEYNOTE_BUILD_BATCH_SIZE]
-            is_last_batch = batch_start + len(batch_slides) >= total_slides
-            batch_doc_ops = plan["doc_ops"] if is_last_batch else None
-            script = build_build_applescript(
-                output_path,
-                batch_slides,
-                start_slide_number=batch_start + 1,
-                doc_ops=batch_doc_ops,
-            )
+        if total_slides == 0 and plan["doc_ops"]:
+            script = build_build_applescript(output_path, [], doc_ops=plan["doc_ops"])
             run_osascript(script)
+        else:
+            for batch_start in range(0, total_slides, KEYNOTE_BUILD_BATCH_SIZE):
+                batch_slides = plan["slides"][batch_start: batch_start + KEYNOTE_BUILD_BATCH_SIZE]
+                is_last_batch = batch_start + len(batch_slides) >= total_slides
+                batch_doc_ops = plan["doc_ops"] if is_last_batch else None
+                script = build_build_applescript(
+                    output_path,
+                    batch_slides,
+                    start_slide_number=batch_start + 1,
+                    doc_ops=batch_doc_ops,
+                )
+                run_osascript(script)
     except Exception as exc:
         if output_path.exists() and not args.keep_failed_output:
             remove_path(output_path)
