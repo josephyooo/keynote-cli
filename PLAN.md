@@ -94,6 +94,23 @@
 | Add movie/audio | not yet | `make new movie/audio clip` |
 | Set position/size/autoplay/loop | not yet | |
 
+### Master slides & themes
+
+| Operation | Status | Notes |
+|-----------|--------|-------|
+| List master slide names | done | via `inspect` |
+| Apply master to a slide | done | `set-master` |
+| Apply theme to document | done | `set-theme` |
+| List available themes | not yet | `get name of every theme` |
+| Create document from theme | not yet | `make new document with properties {document theme: theme "X"}` |
+| Edit text style on a master | done | `override` / `set-style` targeting master slide items |
+| Edit shapes on a master | done | `add-shape` etc. work inside `tell master slide` |
+| Set master background fill | no | `background fill type` is read-only |
+| Add/delete a master slide | no | Not in scripting dictionary |
+| Rename a master slide | no | `name` is read-only |
+| Save as `.kth` theme file | no | GUI-only (`File > Save Theme…` via System Events) |
+| Modify placeholder tags | no | Not exposed to AppleScript |
+
 ### Transitions & builds
 
 | Operation | Status | Notes |
@@ -121,7 +138,8 @@ All script commands use standard `tell application "Keynote"` AppleScript, which
 These cannot be done headlessly and need System Events + Accessibility permissions:
 - Equation insertion (implemented)
 - Setting shape/text fill color
-- Setting slide background to an arbitrary color
+- Setting slide/master background to an arbitrary color
+- Saving as `.kth` theme file (`File > Save Theme…`)
 - Build/animation write operations
 - Z-order changes (send to back/front)
 
