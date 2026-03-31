@@ -1700,6 +1700,7 @@ end tell
 
 
 def command_insert_equations(args: argparse.Namespace) -> int:
+    ensure_runtime_available()
     mappings_path = Path(args.mappings).resolve()
     if not mappings_path.exists():
         fail(f"Mappings file not found: {mappings_path}")
@@ -1835,6 +1836,7 @@ def command_insert_links(args: argparse.Namespace) -> int:
     Requires: macOS Accessibility permissions for the calling process
     and an open Keynote document as front document.
     """
+    ensure_runtime_available()
     mappings_path = Path(args.mappings).resolve()
     if not mappings_path.exists():
         fail(f"Mappings file not found: {mappings_path}")
@@ -1976,6 +1978,7 @@ def command_insert_slide_links(args: argparse.Namespace) -> int:
     Requires: macOS Accessibility permissions for the calling process
     and an open Keynote document as front document.
     """
+    ensure_runtime_available()
     mappings_path = Path(args.mappings).resolve()
     if not mappings_path.exists():
         fail(f"Mappings file not found: {mappings_path}")
