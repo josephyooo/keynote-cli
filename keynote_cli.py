@@ -1143,12 +1143,12 @@ def _build_doc_op_applescript(op: dict[str, Any]) -> list[str]:
 
     elif kind == "add-row":
         lines.append(f"      tell table {op['table']} of slide {op['slide']}")
-        lines.append(f"        add row above row (row count)")
+        lines.append(f"        add row below row (row count)")
         lines.append(f"      end tell")
 
     elif kind == "add-col":
         lines.append(f"      tell table {op['table']} of slide {op['slide']}")
-        lines.append(f"        add column above column (column count)")
+        lines.append(f"        add column after column (column count)")
         lines.append(f"      end tell")
 
     elif kind == "delete-row":
