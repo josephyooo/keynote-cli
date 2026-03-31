@@ -270,7 +270,13 @@ def parse_color(raw: str) -> list[int]:
 
 
 def _unescape_script_text(text: str) -> str:
-    return text.replace("\\n", "\n").replace("\\t", "\t").replace("\\\\", "\\")
+    placeholder = "\x00"
+    return (
+        text.replace("\\\\", placeholder)
+        .replace("\\n", "\n")
+        .replace("\\t", "\t")
+        .replace(placeholder, "\\")
+    )
 
 
 def parse_script_line(line: str, line_num: int, base_dir: Path) -> dict[str, Any] | None:
