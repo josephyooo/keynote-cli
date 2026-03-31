@@ -1353,7 +1353,7 @@ on escapeField(theText)
     set escaped to ""
     repeat with c in characters of theText
         set c to c as text
-        if c is "\\" then
+        if c is "\\\\" then
             set escaped to escaped & "\\\\\\\\"
         else if c is return then
             set escaped to escaped & "\\\\n"
