@@ -460,8 +460,8 @@ def parse_script_line(line: str, line_num: int, base_dir: Path) -> dict[str, Any
             fail(f"Line {line_num}: duplicate-slide requires --slide N [--to M]")
         if args.slide < 1:
             fail(f"Line {line_num}: slide number must be >= 1")
-        if args.to_pos is not None and args.to_pos < 0:
-            fail(f"Line {line_num}: --to must be >= 0")
+        if args.to_pos is not None and args.to_pos < 1:
+            fail(f"Line {line_num}: --to must be >= 1")
         return {"op": "duplicate-slide", "slide": args.slide, "to": args.to_pos}
 
     if cmd == "move-slide":
