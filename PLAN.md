@@ -14,9 +14,9 @@
 | Operation | Status | Notes |
 |-----------|--------|-------|
 | Open/save/close | done | |
-| Export to PDF | done | |
-| Export to PNG/JPEG/PPTX/HTML/movie | not yet | Keynote supports these via `export ... as` |
-| Set document theme | not yet | `set document theme to theme "X"` |
+| Export to PDF/PNG/JPEG/PPTX/HTML | done | `--format` flag on `export` command |
+| Export to movie | not yet | Keynote supports `export ... as QuickTime movie` |
+| Set document theme | done | `set-theme` script command |
 | Presentation playback (start/stop/advance) | not yet | `start`, `stop`, `show next/previous` |
 | Get slide count | done | via `inspect` |
 | Get/set current slide | not yet | |
@@ -29,7 +29,7 @@
 | Delete slides by range | done | |
 | Duplicate slide | done | Optionally place after a specific slide |
 | Move/reorder slides | done | |
-| Skip/unskip slide | not yet | Toggles slide visibility in presentation |
+| Skip/unskip slide | done | `skip-slide` / `unskip-slide` |
 | Set master (base slide) | done | Scriptable way to change backgrounds |
 | Get/set presenter notes | done | |
 | Inspect slide structure | done | JSON output |
@@ -45,17 +45,17 @@
 | Find/replace text | done | Across all slides or a single slide |
 | Override element properties | done | text, position, size, font, color, opacity, rotation |
 | Set text alignment | no | Must be set in master slide |
-| Bold/italic/underline styling | not yet | Settable via `bold of object text`, etc. |
+| Bold/italic/underline styling | done | `set-style` script command |
 
 ### Shapes
 
 | Operation | Status | Notes |
 |-----------|--------|-------|
 | Add shape | done | Position, size, text, rotation, opacity |
-| Add line | not yet | `make new line with properties {start point:..., end point:...}` |
+| Add line | done | `add-line` with start/end points |
 | Set shape text/position/size/rotation/opacity | done | Via `add-shape` or `override` |
-| Duplicate shape | not yet | `duplicate shape N to slide M` — workaround for fill color |
-| Delete shape | not yet | |
+| Duplicate shape | done | `duplicate-shape` — workaround for copying pre-styled shapes |
+| Delete shape | done | `delete-shape` by index |
 | Set shape fill color | no | `background fill type` is read-only in AppleScript |
 | Set shape z-order | no | Requires GUI scripting |
 
@@ -65,7 +65,7 @@
 |-----------|--------|-------|
 | Add image | done | From file path, with position/size |
 | Set position/size/opacity/rotation | done | Via `override` |
-| Delete image | not yet | |
+| Delete image | done | `delete-image` by index |
 | Swap image source | no | `file` and `file name` are read-only — must delete and re-insert |
 
 ### Tables

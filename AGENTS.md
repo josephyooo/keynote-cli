@@ -122,6 +122,66 @@ add-shape --slide N --position X,Y --size W,H [--text T] [--rotation D] [--opaci
 - `--rotation`: degrees (0-359).
 - `--opacity`: 0-100.
 
+### skip-slide
+
+```
+skip-slide --slide N
+```
+
+- Hides slide N from presentation playback (`set skipped to true`).
+
+### unskip-slide
+
+```
+unskip-slide --slide N
+```
+
+- Unhides slide N (`set skipped to false`).
+
+### set-style
+
+```
+set-style --slide N --target TARGET [--bold|--no-bold] [--italic|--no-italic] [--underline|--no-underline]
+```
+
+- Sets bold/italic/underline on the entire text of the target element.
+- Use `--no-bold`, `--no-italic`, `--no-underline` to explicitly unset.
+- At least one style flag is required.
+
+### add-line
+
+```
+add-line --slide N --from X,Y --to X,Y
+```
+
+- Creates a line from the start point to the end point on slide N.
+
+### duplicate-shape
+
+```
+duplicate-shape --slide N --index I --to-slide M
+```
+
+- Copies shape I from slide N to slide M.
+- Useful as a workaround for styled shapes: pre-style a shape in your template, then duplicate it.
+
+### delete-shape
+
+```
+delete-shape --slide N --index I
+```
+
+- Deletes shape I (1-based) from slide N.
+
+### delete-image
+
+```
+delete-image --slide N --index I
+```
+
+- Deletes image I (1-based) from slide N.
+- Since image source is read-only, delete + re-insert is the way to swap images.
+
 ### set-master
 
 ```
@@ -130,6 +190,14 @@ set-master --slide N --master NAME
 
 - Changes the master (base slide) of slide N.
 - This is the scriptable way to change slide backgrounds — use a master with the desired background.
+
+### set-theme
+
+```
+set-theme --theme NAME
+```
+
+- Applies a theme to the entire document, changing all master slides at once.
 
 ### delete-slides
 
@@ -184,6 +252,18 @@ Slide-creation commands (`add-slide`, `set-text`, `add-image`, etc.) are batched
   ]
 }
 ```
+
+## Export formats
+
+`keynote-cli export file.key --format FORMAT [--output PATH]`
+
+| Format | Keynote export type | Default suffix | Notes |
+|--------|-------------------|----------------|-------|
+| `pdf` | PDF | `.pdf` | Default |
+| `png` | slide images (PNG) | `.png` | Individual slide images |
+| `jpeg` | slide images (JPEG) | `.jpeg` | Individual slide images |
+| `pptx` | Microsoft PowerPoint | `.pptx` | |
+| `html` | HTML | `.html` | |
 
 ## insert-equations input format
 

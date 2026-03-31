@@ -16,7 +16,9 @@ keynote-cli run script.txt --check-template              # Also verify masters e
 keynote-cli run script.txt --force                       # Overwrite existing output
 keynote-cli run script.txt --print-applescript            # Print generated AppleScript
 keynote-cli inspect file.key                             # Dump slide structure as JSON
-keynote-cli export file.key --output file.pdf            # Export to PDF
+keynote-cli export file.key --output file.pdf            # Export to PDF (default)
+keynote-cli export file.key --format png --output slides/# Export as PNG images
+keynote-cli export file.key --format pptx                # Export as PowerPoint
 keynote-cli insert-equations equations.json              # Insert LaTeX equations via GUI
 ```
 
@@ -58,9 +60,17 @@ Lines starting with `#` are comments. Blank lines are ignored.
 | `override --slide N --target TARGET [--text T] [--position X,Y] [--size W,H] [--font F] [--font-size S] [--color R,G,B] [--opacity O] [--rotation R]` | Modify existing element |
 | `duplicate-slide --slide N [--to M]` | Duplicate a slide (optionally to after slide M) |
 | `move-slide --slide N --to M` | Move slide N to position M |
+| `skip-slide --slide N` | Hide slide from presentation |
+| `unskip-slide --slide N` | Unhide slide |
 | `replace-text --find "X" --replace "Y" [--slide N]` | Find/replace text across slides |
-| `add-shape --slide N --position X,Y --size W,H [--text T] [--rotation D] [--opacity O]` | Add a shape to a slide |
+| `set-style --slide N --target TARGET [--bold] [--italic] [--underline]` | Set text style (use `--no-bold` etc. to unset) |
+| `add-shape --slide N --position X,Y --size W,H [--text T] [--rotation D] [--opacity O]` | Add a shape |
+| `add-line --slide N --from X,Y --to X,Y` | Add a line |
+| `duplicate-shape --slide N --index I --to-slide M` | Copy a shape to another slide |
+| `delete-shape --slide N --index I` | Delete a shape |
+| `delete-image --slide N --index I` | Delete an image |
 | `set-master --slide N --master NAME` | Change a slide's master (base slide) |
+| `set-theme --theme NAME` | Apply a theme to the entire document |
 | `delete-slides RANGE` | Delete slides (e.g. `1-7` or `5`) |
 | `save` | Save and close the document |
 

@@ -525,6 +525,130 @@ def parse_script_line(line: str, line_num: int, base_dir: Path) -> dict[str, Any
             fail(f"Line {line_num}: slide number must be >= 1")
         return {"op": "set-master", "slide": args.slide, "master": args.master}
 
+    if cmd == "set-theme":
+        parser = argparse.ArgumentParser(prog="set-theme", exit_on_error=False)
+        parser.add_argument("--theme", required=True)
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: set-theme requires --theme NAME")
+        return {"op": "set-theme", "theme": args.theme}
+
+    if cmd == "skip-slide":
+        parser = argparse.ArgumentParser(prog="skip-slide", exit_on_error=False)
+        parser.add_argument("--slide", type=int, required=True)
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: skip-slide requires --slide N")
+        if args.slide < 1:
+            fail(f"Line {line_num}: slide number must be >= 1")
+        return {"op": "skip-slide", "slide": args.slide}
+
+    if cmd == "unskip-slide":
+        parser = argparse.ArgumentParser(prog="unskip-slide", exit_on_error=False)
+        parser.add_argument("--slide", type=int, required=True)
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: unskip-slide requires --slide N")
+        if args.slide < 1:
+            fail(f"Line {line_num}: slide number must be >= 1")
+        return {"op": "unskip-slide", "slide": args.slide}
+
+    if cmd == "delete-shape":
+        parser = argparse.ArgumentParser(prog="delete-shape", exit_on_error=False)
+        parser.add_argument("--slide", type=int, required=True)
+        parser.add_argument("--index", type=int, required=True)
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: delete-shape requires --slide N --index I")
+        if args.slide < 1:
+            fail(f"Line {line_num}: slide number must be >= 1")
+        if args.index < 1:
+            fail(f"Line {line_num}: index must be >= 1")
+        return {"op": "delete-shape", "slide": args.slide, "index": args.index}
+
+    if cmd == "delete-image":
+        parser = argparse.ArgumentParser(prog="delete-image", exit_on_error=False)
+        parser.add_argument("--slide", type=int, required=True)
+        parser.add_argument("--index", type=int, required=True)
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: delete-image requires --slide N --index I")
+        if args.slide < 1:
+            fail(f"Line {line_num}: slide number must be >= 1")
+        if args.index < 1:
+            fail(f"Line {line_num}: index must be >= 1")
+        return {"op": "delete-image", "slide": args.slide, "index": args.index}
+
+    if cmd == "add-line":
+        parser = argparse.ArgumentParser(prog="add-line", exit_on_error=False)
+        parser.add_argument("--slide", type=int, required=True)
+        parser.add_argument("--from", required=True, dest="from_point")
+        parser.add_argument("--to", required=True, dest="to_point")
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: add-line requires --slide N --from X,Y --to X,Y")
+        if args.slide < 1:
+            fail(f"Line {line_num}: slide number must be >= 1")
+        from_pt = parse_pair(args.from_point)
+        to_pt = parse_pair(args.to_point)
+        return {"op": "add-line", "slide": args.slide, "from": from_pt, "to": to_pt}
+
+    if cmd == "duplicate-shape":
+        parser = argparse.ArgumentParser(prog="duplicate-shape", exit_on_error=False)
+        parser.add_argument("--slide", type=int, required=True)
+        parser.add_argument("--index", type=int, required=True)
+        parser.add_argument("--to-slide", type=int, required=True)
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: duplicate-shape requires --slide N --index I --to-slide M")
+        if args.slide < 1 or args.to_slide < 1:
+            fail(f"Line {line_num}: slide numbers must be >= 1")
+        if args.index < 1:
+            fail(f"Line {line_num}: index must be >= 1")
+        return {"op": "duplicate-shape", "slide": args.slide, "index": args.index, "to_slide": args.to_slide}
+
+    if cmd == "set-style":
+        parser = argparse.ArgumentParser(prog="set-style", exit_on_error=False)
+        parser.add_argument("--slide", type=int, required=True)
+        parser.add_argument("--target", required=True)
+        parser.add_argument("--bold", action="store_true", default=None)
+        parser.add_argument("--no-bold", action="store_true", default=None)
+        parser.add_argument("--italic", action="store_true", default=None)
+        parser.add_argument("--no-italic", action="store_true", default=None)
+        parser.add_argument("--underline", action="store_true", default=None)
+        parser.add_argument("--no-underline", action="store_true", default=None)
+        try:
+            args = parser.parse_args(tokens[1:])
+        except (SystemExit, argparse.ArgumentError):
+            fail(f"Line {line_num}: set-style requires --slide N --target TARGET [--bold|--no-bold] [--italic|--no-italic] [--underline|--no-underline]")
+        if args.slide < 1:
+            fail(f"Line {line_num}: slide number must be >= 1")
+        validate_target(args.target, f"line {line_num} target")
+        style: dict[str, Any] = {"op": "set-style", "slide": args.slide, "target": args.target}
+        has_flag = False
+        if args.bold:
+            style["bold"] = True; has_flag = True
+        elif args.no_bold:
+            style["bold"] = False; has_flag = True
+        if args.italic:
+            style["italic"] = True; has_flag = True
+        elif args.no_italic:
+            style["italic"] = False; has_flag = True
+        if args.underline:
+            style["underline"] = True; has_flag = True
+        elif args.no_underline:
+            style["underline"] = False; has_flag = True
+        if not has_flag:
+            fail(f"Line {line_num}: set-style must include at least one style flag")
+        return style
+
     if cmd == "delete-slides":
         if len(tokens) != 2:
             fail(f"Line {line_num}: delete-slides requires a range (e.g. 1-7 or 5)")
@@ -572,7 +696,9 @@ def parse_script(script_path: Path) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 DOC_OPS = frozenset({
-    "duplicate-slide", "move-slide", "replace-text", "add-shape", "set-master", "delete-slides",
+    "duplicate-slide", "move-slide", "replace-text", "add-shape", "set-master", "set-theme",
+    "skip-slide", "unskip-slide", "delete-shape", "delete-image", "add-line",
+    "duplicate-shape", "set-style", "delete-slides",
 })
 
 
@@ -819,6 +945,46 @@ def _build_doc_op_applescript(op: dict[str, Any]) -> list[str]:
         slide_num = op["slide"]
         master = op["master"]
         lines.append(f"      set base slide of slide {slide_num} to master slide {applescript_string(master)}")
+
+    elif kind == "set-theme":
+        theme = op["theme"]
+        lines.append(f"      set document theme to theme {applescript_string(theme)}")
+
+    elif kind == "skip-slide":
+        lines.append(f"      set skipped of slide {op['slide']} to true")
+
+    elif kind == "unskip-slide":
+        lines.append(f"      set skipped of slide {op['slide']} to false")
+
+    elif kind == "delete-shape":
+        lines.append(f"      delete shape {op['index']} of slide {op['slide']}")
+
+    elif kind == "delete-image":
+        lines.append(f"      delete image {op['index']} of slide {op['slide']}")
+
+    elif kind == "add-line":
+        slide_num = op["slide"]
+        from_pt = op["from"]
+        to_pt = op["to"]
+        lines.append(f"      tell slide {slide_num}")
+        lines.append(f"        make new line with properties {{start point:{{{numeric_literal(from_pt[0])}, {numeric_literal(from_pt[1])}}}, end point:{{{numeric_literal(to_pt[0])}, {numeric_literal(to_pt[1])}}}}}")
+        lines.append(f"      end tell")
+
+    elif kind == "duplicate-shape":
+        lines.append(f"      duplicate shape {op['index']} of slide {op['slide']} to slide {op['to_slide']}")
+
+    elif kind == "set-style":
+        slide_num = op["slide"]
+        target = op["target"]
+        expr = target_to_applescript(target, f"slide {slide_num}")
+        lines.append(f"      tell object text of {expr}")
+        if "bold" in op:
+            lines.append(f"        set bold to {'true' if op['bold'] else 'false'}")
+        if "italic" in op:
+            lines.append(f"        set italic to {'true' if op['italic'] else 'false'}")
+        if "underline" in op:
+            lines.append(f"        set underlined to {'true' if op['underline'] else 'false'}")
+        lines.append(f"      end tell")
 
     elif kind == "delete-slides":
         start, end = op["start"], op["end"]
@@ -1118,13 +1284,32 @@ def inspect_file(file_path: Path) -> dict[str, Any]:
 # Export
 # ---------------------------------------------------------------------------
 
-def build_export_applescript(input_path: Path, output_path: Path) -> str:
+EXPORT_FORMAT_MAP = {
+    "pdf": ("PDF", ".pdf"),
+    "png": ("slide images", ".png"),
+    "jpeg": ("slide images", ".jpeg"),
+    "pptx": ("Microsoft PowerPoint", ".pptx"),
+    "html": ("HTML", ".html"),
+}
+
+
+def build_export_applescript(input_path: Path, output_path: Path, *, export_format: str = "pdf") -> str:
+    fmt_info = EXPORT_FORMAT_MAP.get(export_format)
+    if fmt_info is None:
+        fail(f"Unknown export format: {export_format!r}")
+    as_format = fmt_info[0]
+
+    image_extra = ""
+    if export_format in ("png", "jpeg"):
+        img_fmt = "PNG" if export_format == "png" else "JPEG"
+        image_extra = f" with properties {{export style:IndividualSlides, image format:{img_fmt}}}"
+
     return f"""\
 with timeout of {APPLESCRIPT_LONG_TIMEOUT_SECONDS} seconds
 tell application "Keynote"
     set theDoc to open {applescript_posix_file(input_path)}
     try
-        export theDoc to {applescript_posix_file(output_path)} as PDF
+        export theDoc to {applescript_posix_file(output_path)} as {as_format}{image_extra}
         close theDoc saving no
     on error errMsg number errNum
         try
@@ -1227,11 +1412,15 @@ def command_export(args: argparse.Namespace) -> int:
     ensure_existing_file(input_path, "Input file", ".key")
     ensure_runtime_available()
 
+    export_format = args.format.lower()
+    if export_format not in EXPORT_FORMAT_MAP:
+        fail(f"Unknown format: {export_format!r}. Supported: {', '.join(sorted(EXPORT_FORMAT_MAP))}")
+    default_suffix = EXPORT_FORMAT_MAP[export_format][1]
+
     if args.output:
         output_path = Path(args.output).resolve()
     else:
-        output_path = input_path.with_suffix(".pdf")
-    ensure_output_suffix(output_path, ".pdf", "Export output")
+        output_path = input_path.with_suffix(default_suffix)
 
     if output_path.exists():
         if args.force:
@@ -1241,7 +1430,7 @@ def command_export(args: argparse.Namespace) -> int:
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     try:
-        run_osascript(build_export_applescript(input_path, output_path))
+        run_osascript(build_export_applescript(input_path, output_path, export_format=export_format))
     except Exception as exc:
         fail(f"Export failed for {input_path}: {exc}")
     print(str(output_path))
@@ -1426,9 +1615,10 @@ def build_parser() -> argparse.ArgumentParser:
     inspect_parser.add_argument("file", help="Path to .key file")
     inspect_parser.set_defaults(func=command_inspect)
 
-    export_parser = subparsers.add_parser("export", help="Export a .key file to PDF")
+    export_parser = subparsers.add_parser("export", help="Export a .key file")
     export_parser.add_argument("file", help="Path to .key file")
-    export_parser.add_argument("--output", help="Output PDF path")
+    export_parser.add_argument("--output", help="Output path")
+    export_parser.add_argument("--format", default="pdf", help="Export format: pdf, png, jpeg, pptx, html (default: pdf)")
     export_parser.add_argument("--force", action="store_true", help="Overwrite output if it already exists")
     export_parser.set_defaults(func=command_export)
 
