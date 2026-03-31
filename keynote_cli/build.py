@@ -252,11 +252,11 @@ def _build_doc_op_applescript(op: dict[str, Any]) -> list[str]:
     elif kind == "set-transition":
         slide_num = op["slide"]
         style = op["style"]
-        lines.append(f"      tell transition settings of slide {slide_num}")
-        lines.append(f"        set transition effect to {style}")
+        effect = "no transition effect" if style == "none" else style
+        props = [f"transition effect:{effect}"]
         if "duration" in op:
-            lines.append(f"        set transition duration to {numeric_literal(op['duration'])}")
-        lines.append(f"      end tell")
+            props.append(f"transition duration:{numeric_literal(op['duration'])}")
+        lines.append(f"      set transition properties of slide {slide_num} to {{{', '.join(props)}}}")
 
     elif kind == "delete-slides":
         start, end = op["start"], op["end"]
