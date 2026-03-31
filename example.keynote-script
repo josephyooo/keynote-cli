@@ -6,34 +6,34 @@ open my-template.key --output out.key --force
 
 # Title slide
 add-slide --master "Title"
-set-text --slide 1 --target defaultTitleItem "Coastal Erosion Monitoring"
+set-text --slide 1 --target defaultTitleItem "Q3 Product Review"
 set-text --slide 1 --target defaultBodyItem "Acme Corp — Strategy Team"
 
 # Bullets
 add-slide --master "Title & Bullets"
-set-text --slide 2 --target defaultTitleItem "Study Overview"
-set-text --slide 2 --target defaultBodyItem "Shoreline retreat accelerating since 2019\nThree sites surveyed quarterly\nLiDAR scanning at 5 cm resolution\nDrone photogrammetry for validation"
+set-text --slide 2 --target defaultTitleItem "Key Metrics"
+set-text --slide 2 --target defaultBodyItem "Revenue up 18% year-over-year\nCustomer retention at 94%\nThree new enterprise accounts signed\nMobile app launch on track for Q4"
 
 # Section divider
 add-slide --master "Section"
-set-text --slide 3 --target defaultTitleItem "Results"
+set-text --slide 3 --target defaultTitleItem "Highlights"
 
 # Key finding (Big Fact: textItem:1 = big number, textItem:2 = subtitle)
 add-slide --master "Big Fact"
-set-text --slide 4 --target textItem:1 "2.4 m/yr"
-set-text --slide 4 --target textItem:2 "Average shoreline retreat rate across all three sites"
+set-text --slide 4 --target textItem:1 "4,200"
+set-text --slide 4 --target textItem:2 "New users onboarded this quarter"
 
 # Quote (textItem:2 = quote, textItem:1 = attribution)
 add-slide --master "Quote"
-set-text --slide 5 --target textItem:2 "The coastline is not retreating — it is collapsing."
-set-text --slide 5 --target textItem:1 "— Field notes, Site B, September 2024"
+set-text --slide 5 --target textItem:2 "The best product decisions come from listening to customers."
+set-text --slide 5 --target textItem:1 "— Internal retrospective, July 2025"
 
 # Closing slide (Statement: textItem:1 = main text)
 add-slide --master "Statement"
 set-text --slide 6 --target textItem:1 "Questions?"
 
 # Document-level mutations (execute after all slide creation)
-replace-text --find "2019" --replace "2020"
+replace-text --find "Q3" --replace "Q4"
 add-shape --slide 2 --position 100,1000 --size 250,40 --text "DRAFT" --opacity 40
 
 # Remove the template's placeholder slide, then save
