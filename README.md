@@ -43,11 +43,13 @@ keynote-cli export hello.key
 
 ### Example: building a presentation from scratch
 
-The [`example.keynote-script`](example.keynote-script) was built using the Dynamic Clouds Light theme. Different masters expose text in different ways — some use `defaultTitleItem`/`defaultBodyItem`, others only have `textItem:N`. Running `inspect-masters` reveals the layout:
+The [`example.keynote-script`](example.keynote-script) was built using the Dynamic Clouds Light theme. Different masters expose text in different ways — some use `defaultTitleItem`/`defaultBodyItem`, others only have `textItem:N`. Running `inspect-masters` prints JSON describing that layout:
 
 ```bash
 keynote-cli inspect-masters my-template.key
 ```
+
+The actual command output is JSON. The table below is a simplified, human-readable summary of that JSON for this template, not the literal CLI output.
 
 ```
 Master             defaultTitleItem  defaultBodyItem  Other text items
