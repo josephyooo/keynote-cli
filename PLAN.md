@@ -18,8 +18,13 @@
 | Add free text items | done | Position, size, font, color |
 | Set font/size/color on text | done | Must use font variant names (e.g. `"Helvetica-Bold"`) |
 | Add images | done | With position/size |
+| Add shapes | done | Position, size, text, rotation, opacity; fill color not settable |
 | Override element properties | done | text, position, size, font, color, opacity, rotation |
 | Set presenter notes | done | |
+| Duplicate slides | done | Optionally place after a specific slide |
+| Move/reorder slides | done | |
+| Find/replace text | done | Across all slides or a single slide |
+| Change slide master | done | Scriptable way to change backgrounds |
 | Delete slides by range | done | |
 | Export to PDF | done | |
 | Inspect slide structure | done | JSON output |
@@ -27,6 +32,8 @@
 | Batch execution (20 slides/call) | done | |
 | Per-slide error handling | done | |
 | Set text alignment | no | Must be set in master slide |
+| Set shape fill color | no | `background fill type` is read-only in AppleScript |
+| Set slide background directly | no | Use `set-master` to switch to a master with the desired background |
 | Rename/delete master slides | no | Must be preset in template |
 
 ## Automation mechanisms
