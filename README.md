@@ -1,6 +1,6 @@
 # keynote-cli
 
-A command-line tool for automating Apple Keynote on macOS. Build presentations from scripts, inspect slide structure, export to PDF/PNG/PPTX, insert equations, add hyperlinks, and more — all without touching the GUI.
+A command-line tool for automating Apple Keynote on macOS. Build presentations from scripts, inspect slide structure, export to PDF/PNG/PPTX, insert equations, add hyperlinks, and more - all without touching the GUI.
 
 ## Installation
 
@@ -43,7 +43,7 @@ keynote-cli export hello.key
 
 ### Example: building a presentation from scratch
 
-The [`example.keynote-script`](example.keynote-script) was built using the Dynamic Clouds Light theme. Different masters expose text in different ways — some use `defaultTitleItem`/`defaultBodyItem`, others only have `textItem:N`. Running `inspect-masters` prints JSON describing that layout:
+The [`example.keynote-script`](example.keynote-script) was built using the Dynamic Clouds Light theme. Different masters expose text in different ways - some use `defaultTitleItem`/`defaultBodyItem`, others only have `textItem:N`. Running `inspect-masters` prints JSON describing that layout:
 
 ```bash
 keynote-cli inspect-masters my-template.key
@@ -56,13 +56,13 @@ Master             defaultTitleItem  defaultBodyItem  Other text items
 ─────────────────  ────────────────  ───────────────  ────────────────
 Title              ✓ (1730×366)      ✓ (1730×150)     textItem:1 (1730×50)
 Title & Bullets    ✓ (1730×113)      ✓ (1730×650)     textItem:2 (1730×74)
-Section            ✓ (1730×366)      —                —
-Big Fact           —                 1730×570         textItem:2 (1730×74)
-Quote              —                 1644×302         textItem:1 (1591×50)
-Statement          —                 1730×305         —
+Section            ✓ (1730×366)      -                -
+Big Fact           -                 1730×570         textItem:2 (1730×74)
+Quote              -                 1644×302         textItem:1 (1591×50)
+Statement          -                 1730×305         -
 ```
 
-For masters like **Title & Bullets**, `defaultTitleItem` and `defaultBodyItem` work directly. But **Big Fact** has no `defaultTitleItem` — the large number is `defaultBodyItem` (or equivalently `textItem:1`) and the subtitle is `textItem:2`. **Quote** is similar: the quote text is `defaultBodyItem` and the attribution line is `textItem:1`.
+For masters like **Title & Bullets**, `defaultTitleItem` and `defaultBodyItem` work directly. But **Big Fact** has no `defaultTitleItem` - the large number is `defaultBodyItem` (or equivalently `textItem:1`) and the subtitle is `textItem:2`. **Quote** is similar: the quote text is `defaultBodyItem` and the attribution line is `textItem:1`.
 
 The resulting script uses these targets:
 
@@ -73,7 +73,7 @@ set-text --slide 4 --target textItem:2 "New users onboarded this quarter"
 
 add-slide --master "Quote"
 set-text --slide 5 --target textItem:2 "The best product decisions come from listening to customers."
-set-text --slide 5 --target textItem:1 "— Internal retrospective, July 2025"
+set-text --slide 5 --target textItem:1 "- Internal retrospective, July 2025"
 ```
 
 6 slides built in ~5 seconds:
@@ -199,15 +199,15 @@ Slide creation commands (`add-slide`, `set-text`, `add-image`, etc.) execute fir
 
 Three commands drive the Keynote GUI via System Events and require the document to be open and frontmost:
 
-- **`insert-equations`** — replaces `[PLACEHOLDER]` tokens with rendered LaTeX equations via Insert > Equation
-- **`insert-links`** — finds text via Cmd+F and adds URL hyperlinks via Cmd+K
-- **`insert-slide-links`** — selects shapes and adds slide navigation links via Cmd+K
+- **`insert-equations`** - replaces `[PLACEHOLDER]` tokens with rendered LaTeX equations via Insert > Equation
+- **`insert-links`** - finds text via Cmd+F and adds URL hyperlinks via Cmd+K
+- **`insert-slide-links`** - selects shapes and adds slide navigation links via Cmd+K
 
 All accept a JSON file, support `--dry-run` and `--print-applescript`, and process entries in batch. See `AGENTS.md` for input formats.
 
 ## Notes
 
-- Run one `keynote-cli` command at a time — Keynote scripting is not concurrency-safe.
+- Run one `keynote-cli` command at a time - Keynote scripting is not concurrency-safe.
 - Build failures include the failing slide number and master name.
 - Shape fill color and slide backgrounds cannot be set via AppleScript. Use `set-master` to switch to a master with the desired background, or `duplicate-shape` to copy pre-styled shapes from a template slide.
 

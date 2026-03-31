@@ -65,7 +65,7 @@ tell application "System Events"
         set textInput to text area 1 of scroll area 1 of splitter group 1 of theSheet
         set value of textInput to {latex_as}
 
-        -- Wait for the renderer – Insert button is greyed-out until done
+        -- Wait for the renderer - Insert button is greyed-out until done
         repeat {render_timeout} times
             delay 1
             try
@@ -77,7 +77,7 @@ tell application "System Events"
             end try
         end repeat
 
-        -- Timed out – cancel so the dialog doesn't stay open
+        -- Timed out - cancel so the dialog doesn't stay open
         click button "Cancel" of theSheet
         return "render_timeout"
     end tell
@@ -117,7 +117,7 @@ def command_insert_equations(args: argparse.Namespace) -> int:
         label = entry.get("label", placeholder)
 
         print(
-            f"[{i + 1}/{len(entries)}] Slide {slide} {label} … ",
+            f"[{i + 1}/{len(entries)}] Slide {slide} {label} ... ",
             end="",
             flush=True,
         )
@@ -247,7 +247,7 @@ def command_insert_links(args: argparse.Namespace) -> int:
         label = entry.get("label", find_text)
 
         print(
-            f"[{i + 1}/{len(entries)}] Slide {slide} {label} … ",
+            f"[{i + 1}/{len(entries)}] Slide {slide} {label} ... ",
             end="",
             flush=True,
         )
@@ -325,7 +325,7 @@ tell application "System Events"
         keystroke "k" using command down
         delay 0.5
 
-        -- The link popover should appear — click the "Slide" tab/option
+        -- The link popover should appear - click the "Slide" tab/option
         -- Look for a pop up button to switch link type
         try
             set linkPopover to window 1
@@ -390,10 +390,10 @@ def command_insert_slide_links(args: argparse.Namespace) -> int:
         slide = entry["slide"]
         shape = entry["shape"]
         to_slide = entry["to_slide"]
-        label = entry.get("label", f"shape {shape} → slide {to_slide}")
+        label = entry.get("label", f"shape {shape} -> slide {to_slide}")
 
         print(
-            f"[{i + 1}/{len(entries)}] Slide {slide} {label} … ",
+            f"[{i + 1}/{len(entries)}] Slide {slide} {label} ... ",
             end="",
             flush=True,
         )

@@ -42,7 +42,7 @@ def parse_indents(raw: str) -> list[int]:
 def parse_color(raw: str) -> list[int]:
     parts = raw.split(",")
     if len(parts) != 3:
-        fail(f"Color must be R,G,B — got {raw!r}")
+        fail(f"Color must be R,G,B - got {raw!r}")
     try:
         return normalize_color([int(p) for p in parts], "color")
     except ValueError:

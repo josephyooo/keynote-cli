@@ -1,4 +1,4 @@
-# keynote-cli — Plan
+# keynote-cli - Plan
 
 ## Architecture
 
@@ -8,13 +8,13 @@
 
 ```
 keynote_cli/
-  common.py          — errors, validators, AppleScript helpers, run_osascript
-  script_parser.py   — DSL parsing (parse_script_line, parse_script), build plan grouping
-  build.py           — AppleScript generation for slide creation and document-level ops
-  inspect.py         — inspect and inspect-masters commands
-  export.py          — export and present commands
-  gui.py             — insert-equations, insert-links, insert-slide-links (GUI scripting)
-  cli.py             — command_run, build_parser, main
+  common.py          - errors, validators, AppleScript helpers, run_osascript
+  script_parser.py   - DSL parsing (parse_script_line, parse_script), build plan grouping
+  build.py           - AppleScript generation for slide creation and document-level ops
+  inspect.py         - inspect and inspect-masters commands
+  export.py          - export and present commands
+  gui.py             - insert-equations, insert-links, insert-slide-links (GUI scripting)
+  cli.py             - command_run, build_parser, main
 ```
 
 ### Design decisions
@@ -49,7 +49,7 @@ keynote_cli/
 | Set master (base slide) | done | Scriptable way to change backgrounds |
 | Get/set presenter notes | done | |
 | Inspect slide structure | done | JSON output |
-| Inspect master slide layout | done | `inspect-masters` — text items with target notation |
+| Inspect master slide layout | done | `inspect-masters` - text items with target notation |
 
 ### Text
 
@@ -71,7 +71,7 @@ keynote_cli/
 | Add shape | done | Position, size, text, rotation, opacity |
 | Add line | done | `add-line` with start/end points |
 | Set shape text/position/size/rotation/opacity | done | Via `add-shape` or `override` |
-| Duplicate shape | done | `duplicate-shape` — workaround for copying pre-styled shapes |
+| Duplicate shape | done | `duplicate-shape` - workaround for copying pre-styled shapes |
 | Delete shape | done | `delete-shape` by index |
 | Set shape fill color | no | `background fill type` is read-only in AppleScript |
 | Set shape z-order | no | Requires GUI scripting |
@@ -83,7 +83,7 @@ keynote_cli/
 | Add image | done | From file path, with position/size |
 | Set position/size/opacity/rotation | done | Via `override` |
 | Delete image | done | `delete-image` by index |
-| Swap image source | no | `file` and `file name` are read-only — must delete and re-insert |
+| Swap image source | no | `file` and `file name` are read-only - must delete and re-insert |
 
 ### Tables
 
@@ -101,7 +101,7 @@ keynote_cli/
 
 | Operation | Status | Notes |
 |-----------|--------|-------|
-| Insert LaTeX equation | done | GUI scripting via System Events — requires Accessibility permissions |
+| Insert LaTeX equation | done | GUI scripting via System Events - requires Accessibility permissions |
 
 ### Media
 
@@ -124,7 +124,7 @@ keynote_cli/
 | Set master background fill | no | `background fill type` is read-only |
 | Add/delete a master slide | no | Not in scripting dictionary |
 | Rename a master slide | no | `name` is read-only |
-| Save as `.kth` theme file | no | GUI-only (`File > Save Theme…` via System Events) |
+| Save as `.kth` theme file | no | GUI-only (`File > Save Theme...` via System Events) |
 | Modify placeholder tags | no | Not exposed to AppleScript |
 
 ### Hyperlinks
@@ -133,8 +133,8 @@ Keynote's scripting dictionary has no native hyperlink class. All link operation
 
 | Operation | Status | Notes |
 |-----------|--------|-------|
-| Add URL hyperlink to text | done | `insert-links` — finds text via Cmd+F, links via Cmd+K |
-| Add slide navigation link to shape | done | `insert-slide-links` — selects shape, Cmd+K, popover |
+| Add URL hyperlink to text | done | `insert-links` - finds text via Cmd+F, links via Cmd+K |
+| Add slide navigation link to shape | done | `insert-slide-links` - selects shape, Cmd+K, popover |
 | Read existing URL from text | not yet | `get URL of word N` exists but is inconsistent across versions |
 | Remove a link | not yet | Would need GUI scripting: select text, Cmd+K, clear URL |
 
@@ -150,7 +150,7 @@ Both link commands are standalone (not script commands), run as a batch pass, an
 
 ## Automation mechanisms
 
-All script commands use standard `tell application "Keynote"` AppleScript, which works headlessly (Keynote can be in the background or not running — it launches automatically). The one exception is `insert-equations`, which uses GUI scripting via System Events.
+All script commands use standard `tell application "Keynote"` AppleScript, which works headlessly (Keynote can be in the background or not running - it launches automatically). The one exception is `insert-equations`, which uses GUI scripting via System Events.
 
 | Command | Mechanism | Keynote must be open? | Needs frontmost window? | Accessibility permissions? |
 |---------|-----------|----------------------|------------------------|---------------------------|
@@ -168,10 +168,10 @@ All script commands use standard `tell application "Keynote"` AppleScript, which
 
 These cannot be done headlessly and need System Events + Accessibility permissions:
 - Equation insertion (implemented)
-- Hyperlinks — URL links (Cmd+K) and slide navigation links (context menu)
+- Hyperlinks - URL links (Cmd+K) and slide navigation links (context menu)
 - Setting shape/text fill color
 - Setting slide/master background to an arbitrary color
-- Saving as `.kth` theme file (`File > Save Theme…`)
+- Saving as `.kth` theme file (`File > Save Theme...`)
 - Build/animation write operations
 - Z-order changes (send to back/front)
 
@@ -189,4 +189,4 @@ These cannot be done headlessly and need System Events + Accessibility permissio
 
 ## Future direction
 
-Standalone mutation commands (e.g. `keynote-cli set-text --document front ...` or `keynote-cli set-text --file out.key ...`) could allow individual operations outside a script. This would require specifying the document source — either an already-open window (`--document front`) or a file to open (`--file path.key`). Currently, mutation commands only work inside script files run via `keynote-cli run`.
+Standalone mutation commands (e.g. `keynote-cli set-text --document front ...` or `keynote-cli set-text --file out.key ...`) could allow individual operations outside a script. This would require specifying the document source - either an already-open window (`--document front`) or a file to open (`--file path.key`). Currently, mutation commands only work inside script files run via `keynote-cli run`.

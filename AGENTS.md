@@ -1,4 +1,4 @@
-# keynote-cli — Technical Reference
+# keynote-cli - Technical Reference
 
 ## Package layout
 
@@ -201,7 +201,7 @@ set-master --slide N --master NAME
 ```
 
 - Changes the master (base slide) of slide N.
-- This is the scriptable way to change slide backgrounds — use a master with the desired background.
+- This is the scriptable way to change slide backgrounds - use a master with the desired background.
 
 ### add-table
 
@@ -358,7 +358,7 @@ Returns a JSON array with one entry per master slide. Each entry lists the visib
 ]
 ```
 
-Hidden (0×0) text items and placeholder defaults are filtered out. When `defaultTitleItem` or `defaultBodyItem` is `null`, the master has no usable placeholder for that role — use `textItem:N` targets instead.
+Hidden (0x0) text items and placeholder defaults are filtered out. When `defaultTitleItem` or `defaultBodyItem` is `null`, the master has no usable placeholder for that role - use `textItem:N` targets instead.
 
 ## Export formats
 
@@ -387,7 +387,7 @@ keynote-cli present file.key [--from N]
 
 `keynote-cli insert-links links.json [--dry-run] [--print-applescript]`
 
-Adds URL hyperlinks to text in an already-open Keynote deck. Uses GUI scripting (Cmd+K) — requires Accessibility permissions and Keynote as frontmost window.
+Adds URL hyperlinks to text in an already-open Keynote deck. Uses GUI scripting (Cmd+K) - requires Accessibility permissions and Keynote as frontmost window.
 
 A JSON array of objects:
 
@@ -410,7 +410,7 @@ Example:
 
 `keynote-cli insert-slide-links nav.json [--dry-run] [--print-applescript]`
 
-Adds slide navigation links to shapes in an already-open Keynote deck. Uses GUI scripting (Cmd+K + popover) — requires Accessibility permissions and Keynote as frontmost window. Locale-dependent (menu item names may differ in non-English Keynote).
+Adds slide navigation links to shapes in an already-open Keynote deck. Uses GUI scripting (Cmd+K + popover) - requires Accessibility permissions and Keynote as frontmost window. Locale-dependent (menu item names may differ in non-English Keynote).
 
 A JSON array of objects:
 

@@ -7,7 +7,7 @@ open my-template.key --output out.key --force
 # Title slide
 add-slide --master "Title"
 set-text --slide 1 --target defaultTitleItem "Q3 Product Review"
-set-text --slide 1 --target defaultBodyItem "Acme Corp — Strategy Team"
+set-text --slide 1 --target defaultBodyItem "Acme Corp - Strategy Team"
 
 # Bullets
 add-slide --master "Title & Bullets"
@@ -26,7 +26,7 @@ set-text --slide 4 --target textItem:2 "New users onboarded this quarter"
 # Quote (textItem:2 = quote, textItem:1 = attribution)
 add-slide --master "Quote"
 set-text --slide 5 --target textItem:2 "The best product decisions come from listening to customers."
-set-text --slide 5 --target textItem:1 "— Internal retrospective, July 2025"
+set-text --slide 5 --target textItem:1 "- Internal retrospective, July 2025"
 
 # Closing slide (Statement: textItem:1 = main text)
 add-slide --master "Statement"
