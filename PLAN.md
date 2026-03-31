@@ -111,6 +111,19 @@
 | Save as `.kth` theme file | no | GUI-only (`File > Save Theme…` via System Events) |
 | Modify placeholder tags | no | Not exposed to AppleScript |
 
+### Hyperlinks
+
+Keynote's scripting dictionary has no native hyperlink class. All link operations require GUI scripting.
+
+| Operation | Status | Notes |
+|-----------|--------|-------|
+| Add URL hyperlink to text | no | GUI-only: select text, Cmd+K, type URL, Return |
+| Add slide navigation link to object | no | GUI-only: right-click > Add Link > Slide (locale-dependent menu item) |
+| Read existing URL from text | no | `get URL of word N` exists but is inconsistent across Keynote versions |
+| Remove a link | no | GUI-only: select text, Cmd+K, clear URL |
+
+If implemented, the approach would mirror `insert-equations`: activate Keynote, drive the UI via System Events, require Accessibility permissions. Slide navigation links are especially fragile because they rely on context menu item names that change with locale. Best done as a batch pass at the end of a build, not interleaved with other operations.
+
 ### Transitions & builds
 
 | Operation | Status | Notes |
@@ -137,6 +150,7 @@ All script commands use standard `tell application "Keynote"` AppleScript, which
 
 These cannot be done headlessly and need System Events + Accessibility permissions:
 - Equation insertion (implemented)
+- Hyperlinks — URL links (Cmd+K) and slide navigation links (context menu)
 - Setting shape/text fill color
 - Setting slide/master background to an arbitrary color
 - Saving as `.kth` theme file (`File > Save Theme…`)
