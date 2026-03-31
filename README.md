@@ -1,5 +1,7 @@
 # keynote-cli
 
+> **Note**: This project was built entirely with [Claude Code](https://claude.ai/claude-code). Code, documentation, and commit messages were AI-generated with human direction and review.
+
 A command-line tool for automating Apple Keynote on macOS. Build presentations from scripts, inspect slide structure, export to PDF/PNG/PPTX, insert equations, add hyperlinks, and more - all without touching the GUI.
 
 ## Installation
