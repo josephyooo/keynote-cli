@@ -1,31 +1,41 @@
 # Example keynote-cli script
 # Run with: keynote-cli run example.keynote-script
+# Template: Dynamic Clouds Light theme
 
-open my-template.key --output out.key
+open my-template.key --output out.key --force
 
 # Title slide
 add-slide --master "Title"
-set-text --slide 1 --target defaultTitleItem "Climate Risk and Intelligent Adaptation"
+set-text --slide 1 --target defaultTitleItem "Coastal Erosion Monitoring"
 set-text --slide 1 --target defaultBodyItem "Acme Corp — Strategy Team"
 
-# Content slide with body text and indented bullets
+# Bullets
 add-slide --master "Title & Bullets"
-set-text --slide 2 --target defaultTitleItem "Introduction"
-set-text --slide 2 --target defaultBodyItem "Key Concepts\nClimate variability\nExtreme events\nAdaptation strategies" --indents 0,1,1,1
+set-text --slide 2 --target defaultTitleItem "Study Overview"
+set-text --slide 2 --target defaultBodyItem "Shoreline retreat accelerating since 2019\nThree sites surveyed quarterly\nLiDAR scanning at 5 cm resolution\nDrone photogrammetry for validation"
 
-# Two-column slide with an image
-add-slide --master "Title & Bullets Two-Column"
-set-text --slide 3 --target defaultTitleItem "Comparison"
-set-text --slide 3 --target textItem:3 "Left column content"
-set-text --slide 3 --target textItem:2 "Right column content"
+# Section divider
+add-slide --master "Section"
+set-text --slide 3 --target defaultTitleItem "Results"
 
-# Document-level mutations (execute after slide creation)
-duplicate-slide --slide 2 --to 3
-move-slide --slide 4 --to 2
-replace-text --find "Adaptation" --replace "Resilience"
-add-shape --slide 1 --position 100,900 --size 200,50 --text "Draft" --opacity 50
-set-master --slide 1 --master "Black"
+# Key finding (Big Fact: textItem:1 = big number, textItem:2 = subtitle)
+add-slide --master "Big Fact"
+set-text --slide 4 --target textItem:1 "2.4 m/yr"
+set-text --slide 4 --target textItem:2 "Average shoreline retreat rate across all three sites"
 
-# Delete original template slides and save
-delete-slides 1-7
+# Quote (textItem:2 = quote, textItem:1 = attribution)
+add-slide --master "Quote"
+set-text --slide 5 --target textItem:2 "The coastline is not retreating — it is collapsing."
+set-text --slide 5 --target textItem:1 "— Field notes, Site B, September 2024"
+
+# Closing slide (Statement: textItem:1 = main text)
+add-slide --master "Statement"
+set-text --slide 6 --target textItem:1 "Questions?"
+
+# Document-level mutations (execute after all slide creation)
+replace-text --find "2019" --replace "2020"
+add-shape --slide 2 --position 100,1000 --size 250,40 --text "DRAFT" --opacity 40
+
+# Remove the template's placeholder slide, then save
+delete-slides 1
 save
