@@ -209,6 +209,13 @@ def validate_target(target: str, field_name: str) -> str:
     )
 
 
+def validate_text_target(target: str, field_name: str) -> str:
+    validate_target(target, field_name)
+    if target.startswith("image:"):
+        fail(f"{field_name} target {target!r} is not valid for text operations")
+    return target
+
+
 def target_to_applescript(target: str, slide_var: str = "newSlide") -> str:
     if target == "defaultTitleItem":
         return f"default title item of {slide_var}"
@@ -317,7 +324,7 @@ def parse_script_line(line: str, line_num: int, base_dir: Path) -> dict[str, Any
             args = parser.parse_args(tokens[1:])
         except (SystemExit, argparse.ArgumentError):
             fail(f"Line {line_num}: set-text requires --slide N --target TARGET TEXT")
-        validate_target(args.target, f"line {line_num} target")
+        validate_text_target(args.target, f"line {line_num} target")
         text = _unescape_script_text(args.text)
         indents = None
         if args.indents:
@@ -630,7 +637,7 @@ def parse_script_line(line: str, line_num: int, base_dir: Path) -> dict[str, Any
             fail(f"Line {line_num}: set-style requires --slide N --target TARGET [--bold|--no-bold] [--italic|--no-italic] [--underline|--no-underline]")
         if args.slide < 1:
             fail(f"Line {line_num}: slide number must be >= 1")
-        validate_target(args.target, f"line {line_num} target")
+        validate_text_target(args.target, f"line {line_num} target")
         style: dict[str, Any] = {"op": "set-style", "slide": args.slide, "target": args.target}
         has_flag = False
         if args.bold:
