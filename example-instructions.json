@@ -1,0 +1,62 @@
+{
+  "template": "template.key",
+  "output": "example-output.key",
+  "slides": [
+    {
+      "layout": "Title",
+      "content": {
+        "title": "Climate Risk and Intelligent Adaptation",
+        "subtitle": "Acme Corp — Strategy Team"
+      }
+    },
+    {
+      "layout": "Header-Body",
+      "content": {
+        "header": "Course Overview",
+        "body": "• Risk basics\n• Statistical hydrology\n• Adaptation strategies"
+      },
+      "text_boxes": [
+        {
+          "text": "Source: syllabus",
+          "position": [120, 995],
+          "size": [320, 28],
+          "font": "HelveticaNeue",
+          "fontSize": 18,
+          "color": [128, 128, 128]
+        }
+      ]
+    },
+    {
+      "layout": "Header-TwoCol",
+      "content": {
+        "header": "Hazard vs Exposure",
+        "left": "Hazard\n• Floods\n• Drought\n• Heat",
+        "right": "Exposure\n• Population\n• Infrastructure\n• Agriculture"
+      }
+    },
+    {
+      "layout": "Header-Body-TwoCol-Body",
+      "content": {
+        "header": "Summary",
+        "body_top": "Three takeaways:",
+        "left": "• Nonstationarity matters\n• Models need context",
+        "right": "• Impacts are uneven\n• Adaptation is local",
+        "body_bottom": "Dense source slides should be condensed or split across multiple slides."
+      }
+    },
+    {
+      "layout": "Header-Body",
+      "content": {
+        "header": "References",
+        "body": "Naghettini (2017)\nMathias (2024)\nMaity (2018)"
+      }
+    },
+    {
+      "layout": "Title",
+      "content": {
+        "title": "Questions?",
+        "subtitle": "Office hours and contact info"
+      }
+    }
+  ]
+}
