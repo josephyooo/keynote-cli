@@ -2107,7 +2107,7 @@ def build_parser() -> argparse.ArgumentParser:
     export_parser = subparsers.add_parser("export", help="Export a .key file")
     export_parser.add_argument("file", help="Path to .key file")
     export_parser.add_argument("--output", help="Output path")
-    export_parser.add_argument("--format", default="pdf", help="Export format: pdf, png, jpeg, pptx, html (default: pdf)")
+    export_parser.add_argument("--format", default="pdf", help="Export format: pdf, png, jpeg, pptx, html, movie (default: pdf)")
     export_parser.add_argument("--force", action="store_true", help="Overwrite output if it already exists")
     export_parser.set_defaults(func=command_export)
 

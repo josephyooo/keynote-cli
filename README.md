@@ -1,113 +1,174 @@
 # keynote-cli
 
-CLI for automating Keynote presentations on macOS via AppleScript.
+A command-line tool for automating Apple Keynote on macOS. Build presentations from scripts, inspect slide structure, export to PDF/PNG/PPTX, insert equations, add hyperlinks, and more — all without touching the GUI.
 
-## Prerequisites
+## Installation
 
-- macOS with Keynote installed
-- Python 3
-- For `insert-equations`: Terminal must have Accessibility permissions (System Settings > Privacy & Security > Accessibility)
-
-## Commands
+Clone the repo and add it to your PATH:
 
 ```bash
-keynote-cli run script.txt                               # Run a script file
-keynote-cli run script.txt --check-template              # Also verify masters exist
-keynote-cli run script.txt --force                       # Overwrite existing output
-keynote-cli run script.txt --print-applescript            # Print generated AppleScript
-keynote-cli inspect file.key                             # Dump slide structure as JSON
-keynote-cli export file.key --output file.pdf            # Export to PDF (default)
-keynote-cli export file.key --format png --output slides/# Export as PNG images
-keynote-cli export file.key --format pptx                # Export as PowerPoint
-keynote-cli export file.key --format movie               # Export as movie
-keynote-cli present file.key                             # Start slideshow
-keynote-cli present file.key --from 5                    # Start from slide 5
-keynote-cli insert-links links.json                      # Add URL hyperlinks (GUI scripting)
-keynote-cli insert-slide-links nav.json                  # Add slide navigation links (GUI scripting)
-keynote-cli insert-equations equations.json              # Insert LaTeX equations (GUI scripting)
+git clone https://github.com/your-user/keynote-cli.git ~/Projects/keynote-cli
+export PATH="$HOME/Projects/keynote-cli:$PATH"
 ```
 
-## Script format
+### Requirements
 
-A script file is a newline-delimited sequence of commands:
+- macOS with Keynote installed
+- Python 3.10+
+- For GUI scripting commands (`insert-equations`, `insert-links`, `insert-slide-links`): your terminal must be listed under System Settings > Privacy & Security > Accessibility
+
+## Quick start
+
+Create a script file `hello.keynote-script`:
 
 ```
-# Build a presentation from a template
-open template.key --output out.key
-
-# Create slides from master layouts
+open template.key --output hello.key
 add-slide --master "Title"
-set-text --slide 1 --target defaultTitleItem "Presentation Title"
-set-text --slide 1 --target defaultBodyItem "Author Name"
-
-add-slide --master "Title & Bullets"
-set-text --slide 2 --target defaultTitleItem "Section Header"
-set-text --slide 2 --target defaultBodyItem "Point 1\nSub-point A" --indents 0,1
-add-image --slide 2 --file figure.png --position 960,300 --size 800,500
-
-# Clean up and save
+set-text --slide 1 --target defaultTitleItem "Hello World"
+set-text --slide 1 --target defaultBodyItem "Built with keynote-cli"
 delete-slides 1-7
 save
 ```
 
-Lines starting with `#` are comments. Blank lines are ignored.
+Run it:
 
-## Script commands
+```bash
+keynote-cli run hello.keynote-script
+```
+
+Export to PDF:
+
+```bash
+keynote-cli export hello.key
+```
+
+## Commands
+
+### Standalone commands
+
+```bash
+keynote-cli run script.txt                  # Run a script file
+keynote-cli run script.txt --check-template # Verify master slides exist first
+keynote-cli run script.txt --force          # Overwrite existing output
+keynote-cli run script.txt --print-applescript  # Print generated AppleScript
+
+keynote-cli inspect file.key               # Dump slide structure as JSON
+
+keynote-cli export file.key                # Export to PDF (default)
+keynote-cli export file.key --format png   # Export as PNG slide images
+keynote-cli export file.key --format pptx  # Export as PowerPoint
+keynote-cli export file.key --format movie # Export as QuickTime movie
+
+keynote-cli present file.key               # Start slideshow
+keynote-cli present file.key --from 5      # Start from slide 5
+
+# GUI scripting commands (require Accessibility permissions):
+keynote-cli insert-links links.json
+keynote-cli insert-slide-links nav.json
+keynote-cli insert-equations equations.json
+```
+
+### Script commands
+
+Scripts are newline-delimited files of commands. Lines starting with `#` are comments.
+
+#### Slide creation
 
 | Command | Description |
 |---------|-------------|
-| `open TEMPLATE --output OUTPUT [--force]` | Copy template to output path, open in Keynote |
-| `add-slide --master NAME` | Create a new slide from the named master |
+| `open TEMPLATE --output OUTPUT [--force]` | Copy template to output, open in Keynote |
+| `add-slide --master NAME` | Create slide from named master |
+| `save` | Save and close |
+
+#### Text
+
+| Command | Description |
+|---------|-------------|
 | `set-text --slide N --target TARGET TEXT [--indents 0,1,2]` | Set text on a slide item |
 | `set-notes --slide N TEXT` | Set presenter notes |
+| `add-text-box --slide N --text TEXT --position X,Y --size W,H [--font F] [--font-size S] [--color R,G,B]` | Add free text box |
+| `replace-text --find "X" --replace "Y" [--slide N]` | Find/replace text |
+| `set-style --slide N --target TARGET [--bold] [--no-bold] [--italic] [--underline]` | Bold/italic/underline |
+
+#### Images and shapes
+
+| Command | Description |
+|---------|-------------|
 | `add-image --slide N --file PATH --position X,Y [--size W,H]` | Insert image |
-| `add-text-box --slide N --text TEXT --position X,Y --size W,H [--font F] [--font-size S] [--color R,G,B]` | Insert free text box |
-| `override --slide N --target TARGET [--text T] [--position X,Y] [--size W,H] [--font F] [--font-size S] [--color R,G,B] [--opacity O] [--rotation R]` | Modify existing element |
-| `duplicate-slide --slide N [--to M]` | Duplicate a slide (optionally to after slide M) |
-| `move-slide --slide N --to M` | Move slide N to position M |
+| `add-shape --slide N --position X,Y --size W,H [--text T] [--rotation D] [--opacity O]` | Add shape |
+| `add-line --slide N --from X,Y --to X,Y` | Add line |
+| `duplicate-shape --slide N --index I --to-slide M` | Copy shape to another slide |
+| `delete-shape --slide N --index I` | Delete shape |
+| `delete-image --slide N --index I` | Delete image |
+
+#### Slide manipulation
+
+| Command | Description |
+|---------|-------------|
+| `duplicate-slide --slide N [--to M]` | Duplicate slide |
+| `move-slide --slide N --to M` | Move slide to position |
 | `skip-slide --slide N` | Hide slide from presentation |
 | `unskip-slide --slide N` | Unhide slide |
-| `replace-text --find "X" --replace "Y" [--slide N]` | Find/replace text across slides |
-| `set-style --slide N --target TARGET [--bold] [--italic] [--underline]` | Set text style (use `--no-bold` etc. to unset) |
-| `add-shape --slide N --position X,Y --size W,H [--text T] [--rotation D] [--opacity O]` | Add a shape |
-| `add-line --slide N --from X,Y --to X,Y` | Add a line |
-| `duplicate-shape --slide N --index I --to-slide M` | Copy a shape to another slide |
-| `delete-shape --slide N --index I` | Delete a shape |
-| `delete-image --slide N --index I` | Delete an image |
-| `set-master --slide N --master NAME` | Change a slide's master (base slide) |
-| `add-table --slide N --rows R --cols C [--position X,Y] [--size W,H]` | Add a table |
-| `set-cell --slide N --row R --col C VALUE [--table I]` | Set a table cell value |
-| `add-row --slide N [--table I]` | Add a row to a table |
-| `add-col --slide N [--table I]` | Add a column to a table |
-| `delete-row --slide N --row R [--table I]` | Delete a table row |
-| `delete-col --slide N --col C [--table I]` | Delete a table column |
+| `set-master --slide N --master NAME` | Change slide master |
+| `delete-slides RANGE` | Delete slides (e.g. `1-7`) |
+
+#### Tables
+
+| Command | Description |
+|---------|-------------|
+| `add-table --slide N --rows R --cols C [--position X,Y] [--size W,H]` | Add table |
+| `set-cell --slide N --row R --col C VALUE [--table I]` | Set cell value |
+| `add-row --slide N [--table I]` / `add-col --slide N [--table I]` | Add row/column |
+| `delete-row --slide N --row R [--table I]` / `delete-col --slide N --col C [--table I]` | Delete row/column |
+
+#### Document
+
+| Command | Description |
+|---------|-------------|
+| `override --slide N --target TARGET [--text T] [--position X,Y] [--size W,H] [--font F] [--font-size S] [--color R,G,B] [--opacity O] [--rotation R]` | Modify any element |
 | `set-transition --slide N --style TYPE [--duration S]` | Set slide transition |
-| `set-theme --theme NAME` | Apply a theme to the entire document |
-| `delete-slides RANGE` | Delete slides (e.g. `1-7` or `5`) |
-| `save` | Save and close the document |
+| `set-theme --theme NAME` | Apply theme to document |
 
 ### Target notation
 
-- `defaultTitleItem` — the slide's default title placeholder
-- `defaultBodyItem` — the slide's default body placeholder
-- `textItem:N` — text item by 1-based index
-- `image:N` — image by 1-based index
-- `shape:N` — shape by 1-based index
+Targets identify slide elements for `set-text`, `override`, and `set-style`:
 
-### Text escaping in scripts
+| Target | Element |
+|--------|---------|
+| `defaultTitleItem` | Default title placeholder |
+| `defaultBodyItem` | Default body placeholder |
+| `textItem:N` | Text item by index (1-based) |
+| `image:N` | Image by index |
+| `shape:N` | Shape by index |
 
-Use `\n` for newlines, `\t` for tabs, `\\` for literal backslashes within text arguments. Quote arguments with spaces using shell quoting.
+### Text escaping
+
+In script text arguments, use `\n` for newlines, `\t` for tabs, `\\` for literal backslashes. Quote arguments containing spaces with shell quoting (`'...'` or `"..."`).
+
+### Execution order
+
+Slide creation commands (`add-slide`, `set-text`, `add-image`, etc.) execute first in batches. Document-level commands (`duplicate-slide`, `move-slide`, `replace-text`, `add-shape`, `set-master`, `delete-slides`, etc.) execute after all slide creation, in script order.
 
 ## Performance
 
-`keynote-cli run` compiles the entire script into batched AppleScript (20 slides per `osascript` call) for performance. Individual commands are not executed one at a time.
+`keynote-cli run` compiles scripts into batched AppleScript (20 slides per `osascript` call). This is fast enough for 150+ slide decks.
 
-## insert-equations
+## GUI scripting commands
 
-See `AGENTS.md` for the input format. Replaces `[PLACEHOLDER]` tokens in an already-open Keynote deck with rendered LaTeX equations via the Insert > Equation GUI.
+Three commands drive the Keynote GUI via System Events and require the document to be open and frontmost:
+
+- **`insert-equations`** — replaces `[PLACEHOLDER]` tokens with rendered LaTeX equations via Insert > Equation
+- **`insert-links`** — finds text via Cmd+F and adds URL hyperlinks via Cmd+K
+- **`insert-slide-links`** — selects shapes and adds slide navigation links via Cmd+K
+
+All accept a JSON file, support `--dry-run` and `--print-applescript`, and process entries in batch. See `AGENTS.md` for input formats.
 
 ## Notes
 
-- Run one command at a time — Keynote scripting is not concurrency-safe.
-- Build failures show the failing slide number and master name.
-- Source code: `keynote-cli` (entry point) imports `keynote_cli.py`.
+- Run one `keynote-cli` command at a time — Keynote scripting is not concurrency-safe.
+- Build failures include the failing slide number and master name.
+- Shape fill color and slide backgrounds cannot be set via AppleScript. Use `set-master` to switch to a master with the desired background, or `duplicate-shape` to copy pre-styled shapes from a template slide.
+
+## License
+
+MIT
