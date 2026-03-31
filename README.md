@@ -9,8 +9,8 @@ A command-line tool for automating Apple Keynote on macOS. Build presentations f
 Clone the repo and add it to your PATH:
 
 ```bash
-git clone https://github.com/your-user/keynote-cli.git ~/Projects/keynote-cli
-export PATH="$HOME/Projects/keynote-cli:$PATH"
+git clone https://github.com/your-user/keynote-cli.git
+export PATH="$PWD/keynote-cli:$PATH"
 ```
 
 ### Requirements
