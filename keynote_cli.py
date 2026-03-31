@@ -1600,6 +1600,9 @@ def command_export(args: argparse.Namespace) -> int:
     else:
         output_path = input_path.with_suffix(default_suffix)
 
+    if output_path == input_path:
+        fail(f"Output path is the same as input: {output_path}")
+
     if output_path.exists():
         if args.force:
             remove_path(output_path)
